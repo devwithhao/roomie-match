@@ -9,7 +9,7 @@ RoomieMatch la ung dung web giai quyet 3 nhu cau chinh:
 
 Voi team 3-5 nguoi, huong **modular monolith** la phu hop nhat:
 - Mot service duy nhat, trien khai va van hanh don gian.
-- Mot database chinh (PostgreSQL) de giam do phuc tap.
+- Mot database chinh (**MySQL 8+**) cho auth va du lieu nghiep vu (xem [`docs/database.md`](docs/database.md)).
 - Chia module theo domain de code khong bi roi khi du an lon dan.
 
 ### Domain chinh du kien
@@ -167,7 +167,7 @@ flowchart LR
     client[Client] --> apiRouter[API_Router]
     apiRouter --> serviceLayer[Service_Layer]
     serviceLayer --> repositoryLayer[Repository_Layer]
-    repositoryLayer --> postgresDB[PostgreSQL]
+    repositoryLayer --> mysqlDB[MySQL]
     serviceLayer --> responseSchema[Response_Schema]
     responseSchema --> client
 ```
@@ -215,18 +215,29 @@ Neu module lon dan, van giu nguyen structure tren va tach nho file theo use case
 - **FastAPI**: framework API chinh, async-friendly, docs tu dong.
 - **Uvicorn**: ASGI server de chay app FastAPI.
 - **Pydantic**: validate du lieu request/response, tao schema ro rang.
-- **SQLAlchemy**: ORM de thao tac PostgreSQL, linh hoat va pho bien.
+- **SQLAlchemy**: ORM de thao tac MySQL, linh hoat va pho bien.
 - **Alembic**: quan ly migration version hoa schema DB.
-- **PostgreSQL**: co so du lieu chinh, phu hop giao dich va truy van phuc tap.
+- **MySQL**: co so du lieu chinh (driver `pymysql`).
 - **Redis (tuy chon)**:
   - Dung cho cache ket qua tim kiem/matching.
   - Dung cho rate-limit, session ephemeral, queue nhe.
   - Chua can bat buoc o giai doan dau, co the bo sung sau.
 
-## 8. Ghi chu pham vi skeleton hien tai
+## 8. Chay ung dung va auth MVP
 
-- Skeleton nay **chi tao structure va tai lieu**.
-- Khong tao API cu the.
-- Khong tao model DB cu the.
-- Khong tao business logic.
-- Muc tieu la tao khung chung de team vao code ngay ma khong roi.
+- Cau hinh bien moi truong: sao chep [`.env.example`](.env.example) thanh `.env` va dien `DATABASE_URL`, `JWT_SECRET`.
+- Cai dat: `pip install -e ".[dev]"` (tu thu muc repo).
+- Migration: `alembic upgrade head` (tu thu muc repo, dung `alembic.ini`).
+- Chay server: `uvicorn app.main:app --reload --app-dir src`.
+
+### API auth (v1)
+
+- `POST /api/v1/auth/register` — email, password, `display_name` (ten hien thi; tam luu cot `accounts.username`), `account_type`: `tenant` | `landlord`.
+- `POST /api/v1/auth/login` — email, password.
+- `GET /api/v1/auth/me` — header `Authorization: Bearer <token>`.
+
+Chua lam trong phase nay: xac thuc email, OAuth, refresh token, API admin.
+
+## 9. Ghi chu skeleton ban dau
+
+- Ban dau skeleton chi co layout + tai lieu; auth MVP da bo sung code, migration va test.

@@ -1,21 +1,35 @@
 [project]
 name = "roomie_match"
 version = "1.0.0"
-description = "" #TODO: Add a short description of your package
-authors = [{name = "Your Name", email = "your@email.com"}] #TODO: Add your name and email
-requires-python = ">=3.9"
-dynamic = ["optional-dependencies"]
+description = "RoomieMatch backend (FastAPI monolith)"
+authors = [{ name = "Your Name", email = "your@email.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy>=2.0.25",
+    "pymysql>=1.1.0",
+    "cryptography>=42.0.0",
+    "alembic>=1.13.0",
+    "pydantic-settings>=2.1.0",
+    "bcrypt>=4.1.0",
+    "PyJWT>=2.8.0",
+    "email-validator>=2.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.dynamic]
-optional-dependencies = {dev = {file = ["dev-requirements.txt"]}} # add packages for development in the dev-requirements.txt file
+[tool.setuptools]
+package-dir = { "" = "src" }
 
-[project.scripts]
-# TODO: add your CLI entry points here
-
-
-
-
+[tool.setuptools.packages.find]
+where = ["src"]
