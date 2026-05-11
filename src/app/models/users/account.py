@@ -55,6 +55,7 @@ class Account(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

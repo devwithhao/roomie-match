@@ -32,9 +32,12 @@ _load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.database.base import Base  # noqa: E402
+from app.models.rooms import amenity as amenity_model  # noqa: F401, E402
 from app.models.rooms import favorite as favorite_model  # noqa: F401, E402
 from app.models.rooms import post as post_model  # noqa: F401, E402
 from app.models.rooms import room as room_model  # noqa: F401, E402
+from app.models.rooms import room_amenity as room_amenity_model  # noqa: F401, E402
+from app.models.rooms import room_image as room_image_model  # noqa: F401, E402
 from app.models.users import account as account_model  # noqa: F401, E402
 from app.models.users import role as role_model  # noqa: F401, E402
 
