@@ -82,9 +82,7 @@ def test_save_post_then_list_saved_posts(client, db_session):
     assert save.status_code == 200
     body = save.json()
     assert body["created"] is True
-    assert body["post"]["post_id"] == post_id
-    assert body["post"]["room_id"] == room_id
-    assert body["post"]["title"] == "Phòng trọ quận 9"
+    assert body["post_id"] == post_id
 
     save_again = client.post(
         f"/api/v1/posts/{post_id}/save",
@@ -92,6 +90,7 @@ def test_save_post_then_list_saved_posts(client, db_session):
     )
     assert save_again.status_code == 200
     assert save_again.json()["created"] is False
+    assert save_again.json()["post_id"] == post_id
 
     saved = client.get(
         "/api/v1/posts/saved",
@@ -158,10 +157,155 @@ def test_saved_list_is_empty_before_any_save(client):
         headers={"Authorization": f"Bearer {tenant_token}"},
     )
     assert response.status_code == 200
-    assert response.json()["items"] == []
+    body = response.json()
+    assert body["items"] == []
+    assert body["total"] == 0
+    assert body["limit"] == 20
+    assert body["offset"] == 0
 
 
 def test_saved_list_requires_auth(client):
     response = client.get("/api/v1/posts/saved")
     assert response.status_code == 401
+
+
+def test_unsave_post_then_list_is_empty(client, db_session):
+    tenant_token, _ = _register_user(
+        client,
+        email="tenant4@example.com",
+        display_name="Tenant Four",
+        account_type="tenant",
+    )
+    _, landlord_id = _register_user(
+        client,
+        email="landlord4@example.com",
+        display_name="Landlord Four",
+        account_type="landlord",
+    )
+
+    _, post_id = _create_room_post(
+        db_session,
+        owner_id=landlord_id,
+        title="Phòng trọ Tân Bình",
+    )
+
+    save = client.post(
+        f"/api/v1/posts/{post_id}/save",
+        headers={"Authorization": f"Bearer {tenant_token}"},
+    )
+    assert save.status_code == 200
+
+    unsave = client.delete(
+        f"/api/v1/posts/{post_id}/save",
+        headers={"Authorization": f"Bearer {tenant_token}"},
+    )
+    assert unsave.status_code == 200
+    assert unsave.json()["deleted"] is True
+
+    saved = client.get(
+        "/api/v1/posts/saved",
+        headers={"Authorization": f"Bearer {tenant_token}"},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["items"] == []
+
+
+def test_unsave_requires_auth(client):
+    response = client.delete("/api/v1/posts/1/save")
+    assert response.status_code == 401
+
+
+def test_non_tenant_cannot_unsave(client, db_session):
+    landlord_token, landlord_id = _register_user(
+        client,
+        email="landlord5@example.com",
+        display_name="Landlord Five",
+        account_type="landlord",
+    )
+    _, post_id = _create_room_post(
+        db_session,
+        owner_id=landlord_id,
+        title="Phòng trọ Bình Thạnh",
+    )
+
+    response = client.delete(
+        f"/api/v1/posts/{post_id}/save",
+        headers={"Authorization": f"Bearer {landlord_token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_unsave_returns_404_when_post_missing(client):
+    tenant_token, _ = _register_user(
+        client,
+        email="tenant5@example.com",
+        display_name="Tenant Five",
+        account_type="tenant",
+    )
+
+    response = client.delete(
+        "/api/v1/posts/999/save",
+        headers={"Authorization": f"Bearer {tenant_token}"},
+    )
+    assert response.status_code == 404
+
+
+def test_saved_list_supports_limit_offset(client, db_session):
+    tenant_token, _ = _register_user(
+        client,
+        email="tenant6@example.com",
+        display_name="Tenant Six",
+        account_type="tenant",
+    )
+    _, landlord_id = _register_user(
+        client,
+        email="landlord6@example.com",
+        display_name="Landlord Six",
+        account_type="landlord",
+    )
+
+    post_ids: list[int] = []
+    for idx in range(3):
+        _, post_id = _create_room_post(
+            db_session,
+            owner_id=landlord_id,
+            title=f"Phòng trọ {idx}",
+        )
+        post_ids.append(post_id)
+        save = client.post(
+            f"/api/v1/posts/{post_id}/save",
+            headers={"Authorization": f"Bearer {tenant_token}"},
+        )
+        assert save.status_code == 200
+
+    response = client.get(
+        "/api/v1/posts/saved?limit=2&offset=1",
+        headers={"Authorization": f"Bearer {tenant_token}"},
+    )
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["total"] == 3
+    assert body["limit"] == 2
+    assert body["offset"] == 1
+    assert len(body["items"]) == 2
+
+    expected_order = list(reversed(post_ids))
+    assert body["items"][0]["post_id"] == expected_order[1]
+    assert body["items"][1]["post_id"] == expected_order[2]
+
+
+def test_saved_list_pagination_validation(client):
+    tenant_token, _ = _register_user(
+        client,
+        email="tenant7@example.com",
+        display_name="Tenant Seven",
+        account_type="tenant",
+    )
+
+    response = client.get(
+        "/api/v1/posts/saved?limit=0",
+        headers={"Authorization": f"Bearer {tenant_token}"},
+    )
+    assert response.status_code == 422
 

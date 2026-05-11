@@ -21,8 +21,16 @@ class SavedPostOut(BaseModel):
 
 class SavePostResponse(BaseModel):
     created: bool
-    post: SavedPostOut
+    post_id: int
+
+
+class UnsavePostResponse(BaseModel):
+    deleted: bool
+    post_id: int
 
 
 class SavedPostListResponse(BaseModel):
     items: list[SavedPostOut]
+    total: int
+    limit: int
+    offset: int
