@@ -1,243 +1,477 @@
 # RoomieMatch Backend Skeleton (FastAPI Monolith)
 
-## 1. Phan tich bai toan va huong kien truc
+## 1. Phân tích bài toán và hướng kiến trúc
 
-RoomieMatch la ung dung web giai quyet 3 nhu cau chinh:
-- Tim phong tro/can ho.
-- Ghep nguoi o chung phu hop.
-- Ket noi va trao doi giua nguoi dung.
+RoomieMatch là ứng dụng web giải quyết 3 nhu cầu chính:
 
-Voi team 3-5 nguoi, huong **modular monolith** la phu hop nhat:
-- Mot service duy nhat, trien khai va van hanh don gian.
-- Mot database chinh (**MySQL 8+**) cho auth va du lieu nghiep vu (xem [`docs/database.md`](docs/database.md)).
-- Chia module theo domain de code khong bi roi khi du an lon dan.
+* Tìm phòng trọ/căn hộ.
+* Ghép người ở chung phù hợp.
+* Kết nối và trao đổi giữa người dùng.
 
-### Domain chinh du kien
-- `users`: dang ky/dang nhap, ho so, thong tin preference.
-- `rooms`: dang tin phong, chi tiet phong, tim kiem va loc.
-- `matching`: xu ly tieu chi ghep, tinh diem phu hop, de xuat.
-- `messaging`: hoi thoai va trao doi thong tin.
-- `rental_requests`: gui/duyet/tu choi yeu cau thue hoac o ghep.
-- `shared`: thanh phan dung chung (errors, constants, pagination, utility).
+Với team 3–5 người, hướng **Modular Monolith** là phù hợp nhất:
 
-### Nguyen tac to chuc de tranh code roi
-- Luon di theo chieu phu thuoc: `api -> service -> repository -> database`.
-- Khong de business logic trong router.
-- Tach `schemas` (Pydantic DTO) khoi `models` (ORM entity).
-- Han che import cheo giua module; neu can, dung service boundary ro rang.
-- Moi module co day du lop API/Service/Schema/Repository de de phan cong nguoi lam.
+* Một service duy nhất, triển khai và vận hành đơn giản.
+* Một database chính (MySQL 8+) cho auth và dữ liệu nghiệp vụ.
+* Chia module theo domain để code không bị rối khi dự án lớn dần.
 
-## 2. Cau truc project de xuat
+### Domain chính dự kiến
 
-Muc tieu cau truc:
-- De doc code va debug.
-- De onboard dev moi.
-- De chia viec theo module, giam conflict khi lam song song.
+* `users`: đăng ký/đăng nhập, hồ sơ, thông tin preference.
+* `rooms`: đăng tin phòng, chi tiết phòng, tìm kiếm và lọc.
+* `matching`: xử lý tiêu chí ghép, tính điểm phù hợp, đề xuất.
+* `messaging`: hội thoại và trao đổi thông tin.
+* `rental_requests`: gửi/duyệt/từ chối yêu cầu thuê hoặc ở ghép.
+* `shared`: thành phần dùng chung (errors, constants, pagination, utility).
+
+### Nguyên tắc tổ chức để tránh code rối
+
+* Luôn đi theo chiều phụ thuộc:
+
+```text
+api -> service -> repository -> database
+```
+
+* Không để business logic trong router.
+* Tách `schemas` (Pydantic DTO) khỏi `models` (ORM entity).
+* Hạn chế import chéo giữa module; nếu cần, dùng service boundary rõ ràng.
+* Mỗi module có đầy đủ lớp API/Service/Schema/Repository để dễ phân công người làm.
+
+---
+
+# 2. Cấu trúc project đề xuất
+
+### Mục tiêu cấu trúc
+
+* Dễ đọc code và debug.
+* Dễ onboard dev mới.
+* Dễ chia việc theo module, giảm conflict khi làm song song.
 
 ```text
 roomie_match_project/
-|-- src/
-|   |-- app/
-|   |   |-- api/
-|   |   |   |-- v1/
-|   |   |   |   |-- users/
-|   |   |   |   |-- rooms/
-|   |   |   |   |-- matching/
-|   |   |   |   |-- messaging/
-|   |   |   |   `-- rental_requests/
-|   |   |-- services/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- schemas/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- models/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- repositories/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- core/
-|   |   |-- database/
-|   |   `-- shared/
-|   |       |-- constants/
-|   |       |-- errors/
-|   |       |-- pagination/
-|   |       `-- utils/
-|   |-- migrations/
-|   |   `-- versions/
-|   `-- tests/
-|       |-- unit/
-|       |   |-- users/
-|       |   |-- rooms/
-|       |   |-- matching/
-|       |   |-- messaging/
-|       |   `-- rental_requests/
-|       `-- integration/
-|           |-- users/
-|           |-- rooms/
-|           |-- matching/
-|           |-- messaging/
-|           `-- rental_requests/
-|-- docs/
-`-- scripts/
+│-- src/
+│   │-- app/
+│   │   │-- api/
+│   │   │   │-- v1/
+│   │   │   │   │-- users/
+│   │   │   │   │-- rooms/
+│   │   │   │   │-- matching/
+│   │   │   │   │-- messaging/
+│   │   │   │   └── rental_requests/
+│   │   │-- services/
+│   │   │   │-- users/
+│   │   │   │-- rooms/
+│   │   │   │-- matching/
+│   │   │   │-- messaging/
+│   │   │   └── rental_requests/
+│   │   │-- schemas/
+│   │   │   │-- users/
+│   │   │   │-- rooms/
+│   │   │   │-- matching/
+│   │   │   │-- messaging/
+│   │   │   └── rental_requests/
+│   │   │-- models/
+│   │   │   │-- users/
+│   │   │   │-- rooms/
+│   │   │   │-- matching/
+│   │   │   │-- messaging/
+│   │   │   └── rental_requests/
+│   │   │-- repositories/
+│   │   │   │-- users/
+│   │   │   │-- rooms/
+│   │   │   │-- matching/
+│   │   │   │-- messaging/
+│   │   │   └── rental_requests/
+│   │   │-- core/
+│   │   │-- database/
+│   │   └── shared/
+│   │       │-- constants/
+│   │       │-- errors/
+│   │       │-- pagination/
+│   │       └── utils/
+│   │
+│   │-- migrations/
+│   │   └── versions/
+│   │
+│   └── tests/
+│       │-- unit/
+│       │   │-- users/
+│       │   │-- rooms/
+│       │   │-- matching/
+│       │   │-- messaging/
+│       │   └── rental_requests/
+│       └── integration/
+│           │-- users/
+│           │-- rooms/
+│           │-- matching/
+│           │-- messaging/
+│           └── rental_requests/
+│
+│-- docs/
+└── scripts/
 ```
 
-## 3. Giai thich tung thu muc
+---
 
-### `src/app/api/v1/*`
-- Chua router theo module.
-- Chi tiep nhan request, goi service, tra response schema.
-- Khong chua logic nghiep vu phuc tap.
+# 3. Giải thích từng thư mục
 
-### `src/app/services/*`
-- Noi dat use case/business logic.
-- Dieu phoi du lieu tu repository, ap quy tac nghiep vu.
-- Moi service module doc lap de de test don vi.
+## `src/app/api/v1/*`
 
-### `src/app/schemas/*`
-- Pydantic schema cho request/response.
-- Validation input/output va contract API.
-- Khong chua query DB.
+Chứa router theo module.
 
-### `src/app/models/*`
-- ORM model mapping bang du lieu.
-- Khong dat API schema vao day de tranh tron lop.
+* Chỉ tiếp nhận request.
+* Gọi service.
+* Trả response schema.
+* Không chứa logic nghiệp vụ phức tạp.
 
-### `src/app/repositories/*`
-- Chiu trach nhiem truy van DB.
-- Tach rieng query logic khoi service.
-- Ho tro doi ORM hoac toi uu query ma khong anh huong router.
+## `src/app/services/*`
 
-### `src/app/database/`
-- Ket noi DB, session management, base metadata.
-- Noi tap trung cac cau hinh persistence.
+Nơi đặt use case/business logic.
 
-### `src/app/core/`
-- Cac thanh phan he thong dung chung: config, security helper, startup/shutdown hooks.
+* Điều phối dữ liệu từ repository.
+* Áp dụng quy tắc nghiệp vụ.
+* Mỗi service module độc lập để dễ test đơn vị.
 
-### `src/app/shared/*`
-- Cong cu dung chung toan he thong:
-  - `constants`: hang so dung chung.
-  - `errors`: custom exception va mapping loi.
-  - `pagination`: helper phan trang.
-  - `utils`: utility trung lap.
+## `src/app/schemas/*`
 
-### `src/migrations/`
-- Alembic migration scripts.
-- `versions/` chua file version migration.
+Pydantic schema cho request/response.
 
-### `src/tests/`
-- `unit/`: test service, utils, validation theo module.
-- `integration/`: test luong API-DB.
+* Validation input/output.
+* Định nghĩa contract API.
+* Không chứa query DB.
 
-### `docs/`
-- Luu convention, ADR nho, guideline nghiep vu cho team.
+## `src/app/models/*`
 
-### `scripts/`
-- Luu script phuc vu local dev/CI (khong dat logic nghiep vu).
+ORM model mapping bảng dữ liệu.
 
-## 4. Cach su dung FastAPI trong project
+* Không đặt API schema vào đây để tránh trộn lớp.
 
-### Nguyen tac phan lop request
-1. Client goi HTTP endpoint.
-2. Router nhan request va parse bang Pydantic schema.
-3. Router goi service use case.
-4. Service goi repository de doc/ghi DB.
-5. Repository thao tac ORM/session.
-6. Service tra ket qua da xu ly.
-7. Router map ve response schema va tra cho client.
+## `src/app/repositories/*`
 
-### Luong tong quan
+Chịu trách nhiệm truy vấn DB.
+
+* Tách query logic khỏi service.
+* Hỗ trợ đổi ORM hoặc tối ưu query mà không ảnh hưởng router.
+
+## `src/app/database/`
+
+* Kết nối DB.
+* Session management.
+* Base metadata.
+* Nơi tập trung các cấu hình persistence.
+
+## `src/app/core/`
+
+Các thành phần hệ thống dùng chung:
+
+* Config.
+* Security helper.
+* Startup/shutdown hooks.
+
+## `src/app/shared/*`
+
+Công cụ dùng chung toàn hệ thống:
+
+* `constants`: hằng số dùng chung.
+* `errors`: custom exception và mapping lỗi.
+* `pagination`: helper phân trang.
+* `utils`: utility tái sử dụng.
+
+## `src/migrations/`
+
+Alembic migration scripts.
+
+* `versions/` chứa file version migration.
+
+## `src/tests/`
+
+### `unit/`
+
+Test:
+
+* Service.
+* Utils.
+* Validation.
+
+### `integration/`
+
+Test luồng:
+
+* API.
+* Database.
+* Authentication.
+
+## `docs/`
+
+Lưu:
+
+* Convention.
+* ADR nhỏ.
+* Guideline nghiệp vụ.
+
+## `scripts/`
+
+Lưu script phục vụ:
+
+* Local development.
+* CI/CD.
+* Automation.
+
+Không đặt logic nghiệp vụ vào đây.
+
+---
+
+# 4. Cách sử dụng FastAPI trong project
+
+## Nguyên tắc phân lớp request
+
+1. Client gọi HTTP endpoint.
+2. Router nhận request và parse bằng Pydantic schema.
+3. Router gọi service use case.
+4. Service gọi repository để đọc/ghi DB.
+5. Repository thao tác ORM/session.
+6. Service trả kết quả đã xử lý.
+7. Router map về response schema và trả cho client.
+
+## Luồng tổng quan
 
 ```mermaid
 flowchart LR
-    client[Client] --> apiRouter[API_Router]
-    apiRouter --> serviceLayer[Service_Layer]
-    serviceLayer --> repositoryLayer[Repository_Layer]
-    repositoryLayer --> mysqlDB[MySQL]
-    serviceLayer --> responseSchema[Response_Schema]
+    client[Client] --> apiRouter[API Router]
+    apiRouter --> serviceLayer[Service Layer]
+    serviceLayer --> repositoryLayer[Repository Layer]
+    repositoryLayer --> mysqlDB[(MySQL)]
+    serviceLayer --> responseSchema[Response Schema]
     responseSchema --> client
 ```
 
-## 5. Quy tac de tranh conflict khi nhieu nguoi lam
+---
 
-### Quy tac dat code
-- 1 module 1 nhom file theo duong dan co dinh: `api`, `services`, `schemas`, `models`, `repositories`.
-- Ten file uu tien dang `snake_case`, ten class dang `PascalCase`.
-- Dat ten service theo use case, vi du `create_room_service`.
-- Dat ten router theo resource, vi du `rooms_router`.
+# 5. Quy tắc để tránh conflict khi nhiều người làm
 
-### Quy tac phoi hop team
-- Moi nguoi phu trach 1-2 module domain ro rang.
-- PR chi nen tap trung mot module/chu de de de review.
-- Khong sua file shared neu khong can thiet; neu sua can note ro impact.
-- Khi can dung logic module khac, goi qua service contract thay vi import sau.
+## Quy tắc đặt code
 
-### Quy tac import va boundary
-- `api` khong import truc tiep `models`.
-- `repository` khong import `api`.
-- `shared` khong phu thuoc module cu the.
-- Tranh vong lap import; neu gap, tach interface/contract vao `shared`.
+* 1 module = 1 nhóm file theo đường dẫn cố định:
 
-## 6. Cach them module moi (vi du `payment`)
+```text
+api/
+services/
+schemas/
+models/
+repositories/
+```
 
-Khi can them domain moi, lam theo checklist:
-1. Tao cac thu muc:
-   - `src/app/api/v1/payment/`
-   - `src/app/services/payment/`
-   - `src/app/schemas/payment/`
-   - `src/app/models/payment/`
-   - `src/app/repositories/payment/`
-   - `src/tests/unit/payment/`
-   - `src/tests/integration/payment/`
-2. Dang ky router cua module vao API v1.
-3. Them migration neu co thay doi DB.
-4. Cap nhat tai lieu module trong `docs/`.
-5. Them test unit va integration toi thieu cho use case chinh.
+* Tên file ưu tiên dạng `snake_case`.
+* Tên class dùng `PascalCase`.
+* Đặt tên service theo use case.
 
-Neu module lon dan, van giu nguyen structure tren va tach nho file theo use case.
+Ví dụ:
 
-## 7. De xuat thu vien su dung va vai tro
+```text
+create_room_service.py
+```
 
-- **FastAPI**: framework API chinh, async-friendly, docs tu dong.
-- **Uvicorn**: ASGI server de chay app FastAPI.
-- **Pydantic**: validate du lieu request/response, tao schema ro rang.
-- **SQLAlchemy**: ORM de thao tac MySQL, linh hoat va pho bien.
-- **Alembic**: quan ly migration version hoa schema DB.
-- **MySQL**: co so du lieu chinh (driver `pymysql`).
-- **Redis (tuy chon)**:
-  - Dung cho cache ket qua tim kiem/matching.
-  - Dung cho rate-limit, session ephemeral, queue nhe.
-  - Chua can bat buoc o giai doan dau, co the bo sung sau.
+* Đặt tên router theo resource.
 
-## 8. Chay ung dung va auth MVP
+Ví dụ:
 
-- Cau hinh bien moi truong: sao chep [`.env.example`](.env.example) thanh `.env` va dien `DATABASE_URL`, `JWT_SECRET`.
-- Cai dat: `pip install -e ".[dev]"` (tu thu muc repo).
-- Migration: `alembic upgrade head` (tu thu muc repo, dung `alembic.ini`).
-- Chay server: `uvicorn app.main:app --reload --app-dir src`.
+```text
+rooms_router.py
+```
 
-### API auth (v1)
+## Quy tắc phối hợp team
 
-- `POST /api/v1/auth/register` — email, password, `display_name` (ten hien thi; tam luu cot `accounts.username`), `account_type`: `tenant` | `landlord`.
-- `POST /api/v1/auth/login` — email, password.
-- `GET /api/v1/auth/me` — header `Authorization: Bearer <token>`.
+* Mỗi người phụ trách 1–2 module domain rõ ràng.
+* PR chỉ nên tập trung một module/chủ đề để dễ review.
+* Không sửa file shared nếu không cần thiết.
+* Nếu sửa shared phải note rõ impact.
+* Khi cần dùng logic module khác, gọi qua service contract thay vì import sâu.
 
-Chua lam trong phase nay: xac thuc email, OAuth, refresh token, API admin.
+## Quy tắc import và boundary
 
-## 9. Ghi chu skeleton ban dau
+* `api` không import trực tiếp `models`.
+* `repository` không import `api`.
+* `shared` không phụ thuộc module cụ thể.
+* Tránh vòng lặp import.
+* Nếu gặp circular import, tách interface/contract vào `shared`.
 
-- Ban dau skeleton chi co layout + tai lieu; auth MVP da bo sung code, migration va test.
+---
+
+# 6. Cách thêm module mới (ví dụ: payment)
+
+Khi cần thêm domain mới, làm theo checklist:
+
+## Tạo các thư mục
+
+```text
+src/app/api/v1/payment/
+src/app/services/payment/
+src/app/schemas/payment/
+src/app/models/payment/
+src/app/repositories/payment/
+src/tests/unit/payment/
+src/tests/integration/payment/
+```
+
+## Các bước tiếp theo
+
+1. Đăng ký router của module vào API v1.
+2. Thêm migration nếu có thay đổi DB.
+3. Cập nhật tài liệu module trong `docs/`.
+4. Thêm test unit và integration tối thiểu cho use case chính.
+5. Nếu module lớn dần, tiếp tục tách file theo use case nhưng vẫn giữ nguyên structure.
+
+---
+
+# 7. Đề xuất thư viện sử dụng và vai trò
+
+| Thư viện         | Vai trò                                           |
+| ---------------- | ------------------------------------------------- |
+| FastAPI          | Framework API chính, async-friendly, tự sinh docs |
+| Uvicorn          | ASGI server chạy ứng dụng FastAPI                 |
+| Pydantic         | Validate request/response schema                  |
+| SQLAlchemy       | ORM thao tác MySQL                                |
+| Alembic          | Quản lý migration và version schema DB            |
+| MySQL            | Cơ sở dữ liệu chính                               |
+| PyMySQL          | Driver kết nối MySQL                              |
+| Redis (tuỳ chọn) | Cache, rate-limit, queue nhẹ                      |
+
+## Redis dùng khi nào?
+
+* Cache kết quả tìm kiếm/matching.
+* Rate limit.
+* Session ephemeral.
+* Queue nhẹ.
+
+Chưa bắt buộc ở giai đoạn đầu, có thể bổ sung sau.
+
+---
+
+# 8. Chạy ứng dụng và Auth MVP
+
+## Cấu hình môi trường
+
+Sao chép file:
+
+```bash
+.env.example -> .env
+```
+
+Sau đó điền:
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+```
+
+## Cài đặt
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Migration
+
+```bash
+alembic upgrade head
+```
+
+Chạy từ thư mục root repo.
+
+## Chạy server
+
+```bash
+uvicorn app.main:app --reload --app-dir src
+```
+
+---
+
+# API Auth (v1)
+
+## Đăng ký
+
+```http
+POST /api/v1/auth/register
+```
+
+Request body:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "secret123",
+  "display_name": "Nguyen Van A",
+  "account_type": "tenant"
+}
+```
+
+`account_type`:
+
+* `tenant`
+* `landlord`
+
+## Đăng nhập
+
+```http
+POST /api/v1/auth/login
+```
+
+## Lấy thông tin user hiện tại
+
+```http
+GET /api/v1/auth/me
+```
+
+Header:
+
+```http
+Authorization: Bearer <token>
+```
+
+## Chưa làm trong phase này
+
+* Xác thực email.
+* OAuth.
+* Refresh token.
+* API admin.
+
+---
+
+# 9. Ghi chú skeleton ban đầu
+
+Phiên bản skeleton ban đầu chỉ bao gồm:
+
+* Layout project.
+* Convention.
+* Documentation.
+
+Auth MVP đã bổ sung:
+
+* Code.
+* Migration.
+* Test cơ bản.
+
+---
+
+# 10. Kết luận
+
+Kiến trúc Modular Monolith phù hợp với RoomieMatch ở giai đoạn đầu vì:
+
+* Dễ triển khai.
+* Dễ debug.
+* Dễ onboarding.
+* Dễ chia việc cho team nhỏ.
+* Vẫn đủ khả năng mở rộng khi hệ thống lớn dần.
+
+Việc tách rõ:
+
+```text
+API -> Service -> Repository -> Database
+```
+
+sẽ giúp:
+
+* Code sạch hơn.
+* Hạn chế conflict.
+* Dễ test.
+* Dễ maintain lâu dài.
+* Thuận tiện khi nâng cấp lên microservices trong tương lai nếu cần.
