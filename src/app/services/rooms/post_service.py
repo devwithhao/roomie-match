@@ -13,6 +13,7 @@ from app.schemas.rooms.post import (
     PostDetailOut,
     RoomDetailOut,
 )
+from app.schemas.rooms.search import PostSearchFilter
 from app.shared.pagination.paginator import PageParams, total_pages
 
 
@@ -21,13 +22,13 @@ class PostService:
         self._db = db
         self._posts = PostRepository(db)
 
-    def list_posts(self, page: int = 1, page_size: int = 20) -> PaginatedPostListOut:
+    def list_posts(self, page: int = 1, page_size: int = 20, filters: PostSearchFilter | None = None) -> PaginatedPostListOut:
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
 
         params = PageParams(page=page, page_size=page_size)
-        total = self._posts.count_active()
-        rows = self._posts.list_active(params)
+        total = self._posts.count_search(filters)
+        rows = self._posts.search_active(params, filters)
 
         items: list[PostCardOut] = []
         for post, room, thumbnail in rows:

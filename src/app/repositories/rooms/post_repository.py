@@ -9,6 +9,7 @@ from app.models.rooms.room import Room
 from app.models.rooms.room_amenity import RoomAmenity
 from app.models.rooms.room_image import RoomImage
 from app.models.users.account import Account
+from app.schemas.rooms.search import PostSearchFilter
 from app.shared.pagination.paginator import PageParams
 
 
@@ -20,12 +21,40 @@ class PostRepository:
         stmt = select(Post).where(Post.id == post_id)
         return self._db.scalars(stmt).first()
 
-    def count_active(self) -> int:
+    def count_search(self, filters: PostSearchFilter | None = None) -> int:
         stmt = select(func.count()).select_from(Post).where(Post.status == "active")
+        
+        if filters:
+            stmt = stmt.join(Room, Post.room_id == Room.id)
+            if filters.city:
+                stmt = stmt.where(Room.city == filters.city)
+            if filters.district:
+                stmt = stmt.where(Room.district == filters.district)
+            if filters.ward:
+                stmt = stmt.where(Room.ward == filters.ward)
+            if filters.room_type:
+                stmt = stmt.where(Room.room_type == filters.room_type)
+            if filters.min_price is not None:
+                stmt = stmt.where(Room.price >= filters.min_price)
+            if filters.max_price is not None:
+                stmt = stmt.where(Room.price <= filters.max_price)
+            if filters.amenity_ids:
+                # Room must have ALL requested amenities
+                subq = (
+                    select(RoomAmenity.room_id)
+                    .where(RoomAmenity.amenity_id.in_(filters.amenity_ids))
+                    .group_by(RoomAmenity.room_id)
+                    .having(func.count(RoomAmenity.amenity_id) == len(filters.amenity_ids))
+                )
+                stmt = stmt.where(Room.id.in_(subq))
+
         return self._db.scalar(stmt) or 0
 
-    def list_active(self, params: PageParams) -> list[tuple[Post, Room, str | None]]:
-        """Return (Post, Room, thumbnail_url) tuples for active posts, ordered newest first."""
+    def search_active(
+        self,
+        params: PageParams,
+        filters: PostSearchFilter | None = None,
+    ) -> list[tuple[Post, Room, str | None]]:
         thumbnail_subq = (
             select(RoomImage.image_url)
             .where(RoomImage.room_id == Room.id)
@@ -40,10 +69,41 @@ class PostRepository:
             select(Post, Room, thumbnail_subq)
             .join(Room, Post.room_id == Room.id)
             .where(Post.status == "active")
-            .order_by(Post.created_at.desc(), Post.id.desc())
-            .offset(params.offset)
-            .limit(params.limit)
         )
+
+        if filters:
+            if filters.city:
+                stmt = stmt.where(Room.city == filters.city)
+            if filters.district:
+                stmt = stmt.where(Room.district == filters.district)
+            if filters.ward:
+                stmt = stmt.where(Room.ward == filters.ward)
+            if filters.room_type:
+                stmt = stmt.where(Room.room_type == filters.room_type)
+            if filters.min_price is not None:
+                stmt = stmt.where(Room.price >= filters.min_price)
+            if filters.max_price is not None:
+                stmt = stmt.where(Room.price <= filters.max_price)
+            if filters.amenity_ids:
+                subq = (
+                    select(RoomAmenity.room_id)
+                    .where(RoomAmenity.amenity_id.in_(filters.amenity_ids))
+                    .group_by(RoomAmenity.room_id)
+                    .having(func.count(RoomAmenity.amenity_id) == len(filters.amenity_ids))
+                )
+                stmt = stmt.where(Room.id.in_(subq))
+            
+            if filters.sort_by == "price_asc":
+                stmt = stmt.order_by(Room.price.asc(), Post.id.desc())
+            elif filters.sort_by == "price_desc":
+                stmt = stmt.order_by(Room.price.desc(), Post.id.desc())
+            else:
+                stmt = stmt.order_by(Post.created_at.desc(), Post.id.desc())
+        else:
+            stmt = stmt.order_by(Post.created_at.desc(), Post.id.desc())
+
+        stmt = stmt.offset(params.offset).limit(params.limit)
+        
         return list(self._db.execute(stmt).all())
 
     def get_active_detail(self, post_id: int) -> tuple[Post, Room, Account] | None:

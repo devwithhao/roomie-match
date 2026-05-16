@@ -8,6 +8,7 @@ from app.database.session import get_db
 from app.models.users.account import Account
 from app.schemas.rooms.favorite import SavedPostListResponse, SavePostResponse
 from app.schemas.rooms.post import PaginatedPostListOut, PostDetailOut
+from app.schemas.rooms.search import PostSearchFilter
 from app.services.rooms.favorite_service import FavoriteService
 from app.services.rooms.post_service import PostService
 
@@ -18,9 +19,10 @@ router = APIRouter()
 def list_posts(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    filters: PostSearchFilter = Depends(),
     db: Session = Depends(get_db),
 ) -> PaginatedPostListOut:
-    return PostService(db).list_posts(page=page, page_size=page_size)
+    return PostService(db).list_posts(page=page, page_size=page_size, filters=filters)
 
 
 @router.get("/saved", response_model=SavedPostListResponse)
