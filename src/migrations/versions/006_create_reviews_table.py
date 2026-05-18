@@ -1,7 +1,7 @@
 """create reviews table
 
-Revision ID: 004_create_reviews_table
-Revises: 003_add_images_amenities_avatar
+Revision ID: 006_create_reviews_table
+Revises: 005_add_rental_history_table
 Create Date: 2026-05-18
 
 """
@@ -14,8 +14,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import mysql
 
-revision: str = "004_create_reviews_table"
-down_revision: Union[str, None] = "003_add_images_amenities_avatar"
+revision: str = "006_create_reviews_table"
+down_revision: Union[str, None] = "005_add_rental_history_table"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

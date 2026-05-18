@@ -1,7 +1,7 @@
 """add profiles table
 
-Revision ID: 003_add_profiles_table
-Revises: 002_add_rooms_and_favorites
+Revision ID: 004_add_profiles_table
+Revises: 003_add_images_amenities_avatar
 Create Date: 2026-05-11
 
 """
@@ -14,8 +14,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import mysql
 
-revision: str = "003_add_profiles_table"
-down_revision: Union[str, None] = "002_add_rooms_and_favorites"
+revision: str = "004_add_profiles_table"
+down_revision: Union[str, None] = "003_add_images_amenities_avatar"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
