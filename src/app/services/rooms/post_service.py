@@ -80,7 +80,7 @@ class PostService:
         landlord = LandlordOut(
             account_id=account.id,
             display_name=account.username,
-            avatar_url=account.avatar_url,
+            avatar_url=None,
             contact_phone=room.contact_phone,
             contact_social=room.contact_social,
         )
