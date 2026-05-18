@@ -229,7 +229,7 @@ Neu module lon dan, van giu nguyen structure tren va tach nho file theo use case
 - Cai dat: `pip install -e ".[dev]"` (tu thu muc repo).
 - Migration: `alembic upgrade head` (tu thu muc repo, dung `alembic.ini`).
 - Chay server: `uvicorn app.main:app --reload --app-dir src`.
-
+- Chạy server public :'uvicorn app.main:app --app-dir src --host 0.0.0.0 --port 8000 --reload'.
 ### API auth (v1)
 
 - `POST /api/v1/auth/register` — email, password, `display_name` (ten hien thi; tam luu cot `accounts.username`), `account_type`: `tenant` | `landlord`.

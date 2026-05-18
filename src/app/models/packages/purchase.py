@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import mapped_column, Mapped
-from sqlalchemy import String, Integer, BigInteger, JSON, DateTime, func, ForeignKey
+from sqlalchemy import String, Integer, JSON, DateTime, func, ForeignKey
 
 from app.database.base import Base
 
@@ -11,9 +11,9 @@ class Purchase(Base):
 
     __tablename__ = "purchases"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     account_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("accounts.id"), nullable=False
+        Integer, ForeignKey("accounts.id"), nullable=False
     )
     package_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("packages.id"), nullable=False

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import mapped_column, Mapped
-from sqlalchemy import String, Integer, BigInteger, DateTime, func, ForeignKey
+from sqlalchemy import String, Integer, DateTime, func, ForeignKey
 
 from app.database.base import Base
 
@@ -11,9 +11,9 @@ class Entitlement(Base):
 
     __tablename__ = "entitlements"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     account_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("accounts.id"), nullable=False
+        Integer, ForeignKey("accounts.id"), nullable=False
     )
     feature_key: Mapped[str] = mapped_column(
         String(50), nullable=False
@@ -25,7 +25,7 @@ class Entitlement(Base):
         DateTime(timezone=True), nullable=True
     )  # None = no expiry
     source_purchase_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("purchases.id"), nullable=True
+        Integer, ForeignKey("purchases.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
