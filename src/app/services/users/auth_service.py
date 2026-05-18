@@ -70,7 +70,7 @@ class AuthService:
         if self._accounts.get_by_email(email_key):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
+                detail="Email đã được đăng ký",
             )
         if self._accounts.get_by_username(data.display_name):
             raise HTTPException(
