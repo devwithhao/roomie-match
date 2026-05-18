@@ -23,12 +23,22 @@ class ReviewService:
         self._reviews = ReviewRepository(db)
         self._rooms = RoomRepository(db)
 
+    def _get_room_or_404(self, room_id: int) -> None:
+        room = self._rooms.get_by_id(room_id)
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Room not found",
+            )
+
     def list_reviews(
         self,
         room_id: int,
         page: int = 1,
         page_size: int = 20,
     ) -> PaginatedReviewListOut:
+        self._get_room_or_404(room_id)
+
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
         params = PageParams(page=page, page_size=page_size)
@@ -68,12 +78,7 @@ class ReviewService:
         room_id: int,
         data: ReviewCreate,
     ) -> ReviewOut:
-        room = self._rooms.get_by_id(room_id)
-        if not room:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Room not found",
-            )
+        self._get_room_or_404(room_id)
 
         existing = self._reviews.get_by_account_and_room(account.id, room_id)
         if existing:
@@ -113,6 +118,8 @@ class ReviewService:
         review_id: int,
         data: ReviewUpdate,
     ) -> ReviewOut:
+        self._get_room_or_404(room_id)
+
         review = self._reviews.get_by_id(review_id)
         if not review or review.room_id != room_id:
             raise HTTPException(
