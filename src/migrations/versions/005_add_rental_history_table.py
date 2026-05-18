@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_table(
         "rental_history",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("account_id", sa.BigInteger(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
         sa.Column("room_id", sa.Integer(), nullable=False),
         sa.Column("post_id", sa.Integer(), nullable=False),
         sa.Column("start_date", sa.Date(), nullable=False),
