@@ -41,7 +41,7 @@ class ReviewService:
             reviewer = ReviewerOut(
                 account_id=account.id,
                 display_name=account.username,
-                avatar_url=account.avatar_url,
+                avatar_url=None,
             )
             items.append(
                 ReviewOut(
@@ -95,7 +95,7 @@ class ReviewService:
         reviewer = ReviewerOut(
             account_id=account.id,
             display_name=account.username,
-            avatar_url=account.avatar_url,
+            avatar_url=None,
         )
         return ReviewOut(
             id=review.id,
@@ -137,7 +137,7 @@ class ReviewService:
         reviewer = ReviewerOut(
             account_id=account.id,
             display_name=account.username,
-            avatar_url=account.avatar_url,
+            avatar_url=None,
         )
         return ReviewOut(
             id=review.id,
