@@ -13,3 +13,6 @@ class ProfileRepository:
     def get_by_account_id(self, account_id: int) -> Profile | None:
         stmt = select(Profile).where(Profile.account_id == account_id)
         return self._db.scalars(stmt).first()
+
+    def update(self, profile: Profile) -> None:
+        self._db.add(profile)

@@ -37,6 +37,7 @@ from app.models.rooms import favorite as favorite_model  # noqa: F401, E402
 from app.models.rooms import post as post_model  # noqa: F401, E402
 from app.models.rooms import review as review_model  # noqa: F401, E402
 from app.models.rooms import room as room_model  # noqa: F401, E402
+from app.models.rental_requests import rental_history as rental_history_model  # noqa: F401, E402
 from app.models.rooms import room_amenity as room_amenity_model  # noqa: F401, E402
 from app.models.rooms import room_image as room_image_model  # noqa: F401, E402
 from app.models.users import account as account_model  # noqa: F401, E402

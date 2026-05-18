@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_table(
         "rooms",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.BigInteger(), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=True),
         sa.Column("room_type", sa.String(length=100), nullable=True),
         sa.Column("area", sa.Float(), nullable=True),
@@ -80,7 +80,7 @@ def upgrade() -> None:
         "posts",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("room_id", sa.Integer(), nullable=False),
-        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.BigInteger(), nullable=False),
         sa.Column(
             "status",
             sa.String(length=20),
@@ -108,7 +108,7 @@ def upgrade() -> None:
 
     op.create_table(
         "favorites",
-        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.BigInteger(), nullable=False),
         sa.Column("post_id", sa.Integer(), nullable=False),
         sa.Column(
             "created_at",

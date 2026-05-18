@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AccountProfileOut(BaseModel):
@@ -20,8 +22,26 @@ class ProfileOut(BaseModel):
     account_id: int
     full_name: str
     phone: str | None = None
-    gender: str | None = None
+    gender: Literal["male", "female", "other"] | None = None
     avatar_url: str | None = None
+
+
+class UpdateProfileIn(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=20)
+    gender: Literal["male", "female", "other"] | None = Field(default=None)
+    avatar_url: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self) -> "UpdateProfileIn":
+        if (
+            self.full_name is None
+            and self.phone is None
+            and self.gender is None
+            and self.avatar_url is None
+        ):
+            raise ValueError("At least one field must be provided")
+        return self
 
 
 class MeProfileResponse(BaseModel):
