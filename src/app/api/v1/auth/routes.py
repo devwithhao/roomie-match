@@ -7,6 +7,7 @@ from app.api.v1.auth.deps import get_current_account
 from app.database.session import get_db
 from app.models.users.account import Account
 from app.models.users.role import Role
+from app.models.users.profile import Profile
 from app.schemas.users.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
 from app.services.users.auth_service import AuthService
 
@@ -29,10 +30,20 @@ def read_me(
     db: Session = Depends(get_db),
 ) -> UserOut:
     role = db.get(Role, account.role_id)
+    profile = None
+    try:
+        profile = db.get(Profile, account.id)
+    except Exception:
+        profile = None
     return UserOut(
         id=account.id,
         email=account.email or "",
         display_name=account.username or "",
         account_type=role.name if role else "tenant",
         email_verified=bool(account.email_verified),
+        full_name=profile.full_name if profile is not None else None,
+        phone=profile.phone if profile is not None else None,
+        gender=profile.gender if profile is not None else None,
+        avatar_url=profile.avatar_url if profile is not None else None,
+        joined_at=account.created_at if getattr(account, "created_at", None) is not None else None,
     )

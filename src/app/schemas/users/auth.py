@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -37,6 +38,12 @@ class UserOut(BaseModel):
     display_name: str
     account_type: str
     email_verified: bool
+    # optional profile fields
+    full_name: str | None = None
+    phone: str | None = None
+    gender: str | None = None
+    avatar_url: str | None = None
+    joined_at: datetime | None = None
 
 
 class TokenResponse(BaseModel):

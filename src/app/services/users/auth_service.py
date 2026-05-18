@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.users.account import Account
+from app.models.users.profile import Profile
 from app.repositories.users.account_repository import AccountRepository
 from app.repositories.users.role_repository import RoleRepository
 from app.schemas.users.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
@@ -86,6 +87,10 @@ class AuthService:
         )
         self._accounts.add(account)
         try:
+            # ensure account gets an id before creating profile
+            self._db.flush()
+            profile = Profile(account_id=account.id, full_name=data.display_name)
+            self._db.add(profile)
             self._db.commit()
         except IntegrityError as exc:
             self._db.rollback()
@@ -150,6 +155,13 @@ class AuthService:
             email=account.email or "",
             role_name=role_name,
         )
+        # try to include profile fields if available
+        profile = None
+        try:
+            profile = self._db.get(Profile, account.id)
+        except Exception:
+            profile = None
+
         return TokenResponse(
             access_token=token,
             expires_in=expires_in,
@@ -159,5 +171,10 @@ class AuthService:
                 display_name=account.username or "",
                 account_type=role_name,
                 email_verified=bool(account.email_verified),
+                full_name=profile.full_name if profile is not None else None,
+                phone=profile.phone if profile is not None else None,
+                gender=profile.gender if profile is not None else None,
+                avatar_url=profile.avatar_url if profile is not None else None,
+                joined_at=account.created_at if getattr(account, "created_at", None) is not None else None,
             ),
         )
