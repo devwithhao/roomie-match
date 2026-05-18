@@ -39,6 +39,10 @@ from app.models.rental_requests import rental_history as rental_history_model  #
 from app.models.users import account as account_model  # noqa: F401, E402
 from app.models.users import profile as profile_model  # noqa: F401, E402
 from app.models.users import role as role_model  # noqa: F401, E402
+from app.models.packages import package as package_model  # noqa: F401, E402
+from app.models.packages import purchase as purchase_model  # noqa: F401, E402
+from app.models.packages import entitlement as entitlement_model  # noqa: F401, E402
+
 
 
 config = context.config
