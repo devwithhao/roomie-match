@@ -23,7 +23,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "roles",
-        sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("name", sa.String(length=50), nullable=False),
         sa.Column("description", sa.String(length=255), nullable=True),
         sa.Column(
@@ -40,7 +40,7 @@ def upgrade() -> None:
 
     op.create_table(
         "accounts",
-        sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("email", sa.String(length=255), nullable=True),
         sa.Column("username", sa.String(length=100), nullable=True),
         sa.Column("password_hash", sa.String(length=255), nullable=True),
@@ -63,7 +63,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("0"),
         ),
-        sa.Column("role_id", sa.BigInteger(), nullable=False),
+        sa.Column("role_id", sa.Integer(), nullable=False),
         sa.Column("last_login_at", mysql.TIMESTAMP(), nullable=True),
         sa.Column(
             "created_at",
