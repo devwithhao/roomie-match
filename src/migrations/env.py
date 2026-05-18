@@ -40,6 +40,7 @@ from app.models.rooms import room as room_model  # noqa: F401, E402
 from app.models.rooms import room_amenity as room_amenity_model  # noqa: F401, E402
 from app.models.rooms import room_image as room_image_model  # noqa: F401, E402
 from app.models.users import account as account_model  # noqa: F401, E402
+from app.models.users import profile as profile_model  # noqa: F401, E402
 from app.models.users import role as role_model  # noqa: F401, E402
 
 
