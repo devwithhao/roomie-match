@@ -68,14 +68,14 @@ def upgrade() -> None:
         mysql_engine="InnoDB",
     )
 
-    op.add_column(
-        "accounts",
-        sa.Column("avatar_url", sa.String(length=500), nullable=True),
-    )
+    # op.add_column(
+    #     "accounts",
+    #     sa.Column("avatar_url", sa.String(length=500), nullable=True),
+    # )
 
 
 def downgrade() -> None:
-    op.drop_column("accounts", "avatar_url")
+    # op.drop_column("accounts", "avatar_url")
     op.drop_table("room_amenities")
     op.drop_table("amenities")
     op.drop_table("room_images")
