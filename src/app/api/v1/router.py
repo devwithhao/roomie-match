@@ -8,6 +8,7 @@ from app.api.v1.rooms.routes import router as rooms_router
 from app.api.v1.users.routes import router as users_router
 from app.api.v1.packages import router as packages_router
 from app.api.v1.packages.webhook import router as packages_webhook_router
+from app.api.v1.chatbot.router import router as chatbot_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -18,3 +19,4 @@ api_router.include_router(packages_router, prefix="/packages", tags=["packages"]
 api_router.include_router(
     packages_webhook_router, prefix="/packages", tags=["packages"]
 )
+api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
