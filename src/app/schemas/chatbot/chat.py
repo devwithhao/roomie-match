@@ -16,7 +16,7 @@ class ChatMessageResponse(ChatMessageBase):
     id: int
     session_id: int
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -31,7 +31,7 @@ class ChatSessionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     messages: List[ChatMessageResponse] = []
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 

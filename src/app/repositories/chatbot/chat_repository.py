@@ -32,12 +32,12 @@ class ChatRepository:
     def add_message(self, session_id: int, role: str, content: str) -> ChatMessage:
         msg = ChatMessage(session_id=session_id, role=role, content=content)
         self.db.add(msg)
-        
+
         # Cập nhật thời gian update cho session
         session = self.get_session(session_id)
         if session:
             session.updated_at = datetime.now(timezone.utc)
-            
+
         self.db.commit()
         self.db.refresh(msg)
         return msg

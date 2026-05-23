@@ -27,8 +27,8 @@ class ChatSession(Base):
     )
 
     messages = relationship(
-        "ChatMessage", 
-        back_populates="session", 
+        "ChatMessage",
+        back_populates="session",
         cascade="all, delete-orphan",
-        order_by="ChatMessage.created_at"
+        order_by="ChatMessage.created_at",
     )

@@ -15,7 +15,9 @@ class ChatMessage(Base):
     session_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False
     )
-    role: Mapped[str] = mapped_column(String(50), nullable=False) # 'user', 'assistant', 'system'
+    role: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # 'user', 'assistant', 'system'
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

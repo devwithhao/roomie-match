@@ -6,10 +6,10 @@ from app.database.session import get_db
 from app.api.v1.auth.deps import get_current_account
 from app.models.users.account import Account
 from app.schemas.chatbot.chat import (
-    ChatSessionResponse, 
-    ChatSessionCreate, 
-    ChatRequest, 
-    ChatMessageResponse
+    ChatSessionResponse,
+    ChatSessionCreate,
+    ChatRequest,
+    ChatMessageResponse,
 )
 from app.services.chatbot.chatbot_service import ChatbotService
 
@@ -45,11 +45,13 @@ def get_session_messages(
     # Xác thực session là của user này
     session = service.repo.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session không tồn tại.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session không tồn tại."
+        )
     if session.user_id != current_account.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Bạn không có quyền truy cập session này."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập session này.",
         )
 
     return service.get_session_messages(session_id=session_id)
@@ -65,17 +67,15 @@ def send_chat_message(
     service = ChatbotService(db)
     # Quá trình process_chat đã có sẵn validate user
     service.process_chat(
-        user_id=current_account.id, 
-        session_id=session_id, 
-        text=request.content
+        user_id=current_account.id, session_id=session_id, text=request.content
     )
-    
+
     # Lấy message (assistant reply) cuối cùng để trả về
     messages = service.get_session_messages(session_id=session_id)
     if messages:
         return messages[-1]
-    
+
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Lỗi khi tạo phản hồi từ AI."
+        detail="Lỗi khi tạo phản hồi từ AI.",
     )

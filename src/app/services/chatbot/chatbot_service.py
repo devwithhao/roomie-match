@@ -1,4 +1,5 @@
-﻿from sqlalchemy.orm import Session
+﻿import re
+from sqlalchemy.orm import Session
 from app.repositories.chatbot.chat_repository import ChatRepository
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -20,11 +21,12 @@ class ChatbotService:
             api_key=settings.groq_api_key
         )
         self.system_prompt = SystemMessage(
-            content="""Bạn là AI hỗ trợ của Roomie Match (Nền tảng tìm phòng). 
-1. Nhiệm vụ của bạn là tư vấn phòng, ghép trọ, và hỗ trợ các tính năng.
-2. LUÔN LUÔN gọi tool search_available_rooms khi người dùng hỏi tìm phòng. Nếu cần hỏi thêm thông tin (giá, quận), hãy hỏi người dùng.
-3. KHI TOOL TRẢ VỀ KẾT QUẢ KHÔNG TÌM THẤY, GHI RÕ: "Hiện tại hệ thống không có phòng nào phù hợp với yêu cầu của bạn, bạn có thể tăng ngân sách hoặc đổi khu vực không?", TUYỆT ĐỐI KHÔNG tự bịa ra phòng ở khu vực khác.
-4. Trả lời ngắn gọn, thân thiện bằng Tiếng Việt.
+            content="""Bạn là AI hỗ trợ thân thiện của Roomie Match (Nền tảng tìm phòng). 
+1. Nhiệm vụ của bạn là tư vấn tìm phòng và ghép trọ.
+2. BẠN ĐƯỢC TRANG BỊ CÔNG CỤ TÌM KIẾM. Bạn PHẢI dùng công cụ này để tra cứu Database hệ thống dựa trên yêu cầu của user. KHÔNG TỰ BỊA RA PHÒNG.
+3. Trả lời bằng Tiếng Việt. Giao tiếp như một nhân viên Sale: dạ, vâng, ạ.
+4. CHỈ cung cấp thông tin dựa trên dữ liệu công cụ trả về. Nếu công cụ báo không có, hãy lịch sự đề xuất họ giảm ngân sách.
+5. TUYỆT ĐỐI KHÔNG BAO GIỜ in ra các cú pháp gọi hàm, source code (ví dụ như <function>, (function=... ) trong câu trả lời cuối cùng của bạn.
 """
         )
 
@@ -61,6 +63,12 @@ class ChatbotService:
         response = agent.invoke({"messages": langchain_messages})
         
         ai_reply = str(response["messages"][-1].content)
+        
+        # --- BƯỚC DỌN DẸP / SANITIZE ---
+        # Lược bỏ các đoạn text AI sinh nhầm mã Tool Calling (ảo giác) ra màn hình FE
+        ai_reply = re.sub(r'\(function=.*?\</function\>', '', ai_reply, flags=re.DOTALL)
+        ai_reply = re.sub(r'\<tool_call\>.*?\</tool_call\>', '', ai_reply, flags=re.DOTALL)
+        ai_reply = ai_reply.strip()
         
         self.repo.add_message(session_id=session_id, role="assistant", content=ai_reply)
         
