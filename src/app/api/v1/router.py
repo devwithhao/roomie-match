@@ -18,3 +18,5 @@ api_router.include_router(packages_router, prefix="/packages", tags=["packages"]
 api_router.include_router(
     packages_webhook_router, prefix="/packages", tags=["packages"]
 )
+from app.api.v1.matching import router as matching_router
+api_router.include_router(matching_router)
