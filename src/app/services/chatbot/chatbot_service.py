@@ -25,8 +25,9 @@ class ChatbotService:
 1. Nhiệm vụ của bạn là tư vấn tìm phòng và ghép trọ.
 2. BẠN ĐƯỢC TRANG BỊ CÔNG CỤ TÌM KIẾM. Bạn PHẢI dùng công cụ này để tra cứu Database hệ thống dựa trên yêu cầu của user. KHÔNG TỰ BỊA RA PHÒNG.
 3. Trả lời bằng Tiếng Việt. Giao tiếp như một nhân viên Sale: dạ, vâng, ạ.
-4. CHỈ cung cấp thông tin dựa trên dữ liệu công cụ trả về. Nếu công cụ báo không có, hãy lịch sự đề xuất họ giảm ngân sách.
-5. TUYỆT ĐỐI KHÔNG BAO GIỜ in ra các cú pháp gọi hàm, source code (ví dụ như <function>, (function=... ) trong câu trả lời cuối cùng của bạn.
+4. KHI CÓ KẾT QUẢ TỪ CÔNG CỤ, BẠN PHẢI LIỆT KÊ CHI TIẾT THÔNG TIN PHÒNG (Tên, Giá, Địa chỉ, Liên hệ...) ra cho người dùng. TUYỆT ĐỐI KHÔNG trả lời chung chung là "có thể xem thông tin".
+5. Nếu công cụ báo không có phòng, hãy lịch sự thông báo và đề xuất họ mở rộng tiêu chí.
+6. TUYỆT ĐỐI KHÔNG BAO GIỜ in ra các cú pháp gọi hàm, source code (ví dụ như <function>, (function=... ), <tool_call>... ) trong câu trả lời của bạn.
 """
         )
 
@@ -66,8 +67,13 @@ class ChatbotService:
         
         # --- BƯỚC DỌN DẸP / SANITIZE ---
         # Lược bỏ các đoạn text AI sinh nhầm mã Tool Calling (ảo giác) ra màn hình FE
-        ai_reply = re.sub(r'\(function=.*?\</function\>', '', ai_reply, flags=re.DOTALL)
-        ai_reply = re.sub(r'\<tool_call\>.*?\</tool_call\>', '', ai_reply, flags=re.DOTALL)
+        ai_reply = re.sub(r'\(function=.*?\</function\>', '', ai_reply, flags=re.DOTALL | re.IGNORECASE)
+        ai_reply = re.sub(r'\<tool_call\>.*?\</tool_call\>', '', ai_reply, flags=re.DOTALL | re.IGNORECASE)
+        # Bắt thêm trường hợp AI tạo cú pháp lỏng lẻo như /function=...
+        ai_reply = re.sub(r'/function=.*?\</function\>', '', ai_reply, flags=re.DOTALL | re.IGNORECASE)
+        # Bắt thêm xml mở thẻ lỏng lẻo
+        ai_reply = re.sub(r'\<function=.*?\</function\>', '', ai_reply, flags=re.DOTALL | re.IGNORECASE)
+        
         ai_reply = ai_reply.strip()
         
         self.repo.add_message(session_id=session_id, role="assistant", content=ai_reply)

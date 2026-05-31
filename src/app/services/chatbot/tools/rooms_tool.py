@@ -45,9 +45,9 @@ def get_room_search_tool(db: Session) -> StructuredTool:
             rooms = db.scalars(query.limit(5)).all()
 
             if not rooms:
-                return f"[KẾT QUẢ TỪ DATABASE]: KHÔNG TÌM THẤY phòng nào phù hợp với (Quận: {district}, Giá dưới: {max_price}). Hãy báo người dùng là không có!"
+                return f"[KẾT QUẢ TỪ DATABASE]: KHÔNG TÌM THẤY phòng nào. BẠN PHẢI BÁO CHO USER BIẾT LÀ KHÔNG CÓ PHÒNG NÀO THỎA MÃN!"
 
-            results = ["[KẾT QUẢ TỪ DATABASE]: Đã tìm thấy các phòng sau:"]
+            results = ["[KẾT QUẢ TỪ DATABASE]: Đã tìm thấy các phòng sau. BẠN BẮT BUỘC PHẢI LIỆT KÊ CHI TIẾT TỪNG PHÒNG NÀY TRONG CÂU TRẢ LỜI CỦA MÌNH CHO USER ĐỌC:"]
             for r in rooms:
                 address = r.full_address or f"{r.district}, {r.city}"
                 results.append(
