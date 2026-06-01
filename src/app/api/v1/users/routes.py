@@ -47,3 +47,4 @@ def list_my_rental_history(
         status=status,
         query=q,
     )
+

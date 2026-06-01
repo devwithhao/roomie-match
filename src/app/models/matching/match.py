@@ -1,0 +1,36 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database.base import Base
+
+
+class UserMatch(Base):
+    __tablename__ = "user_matches"
+
+    account_id_1: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("accounts.id", name="fk_user_matches_account_1"),
+        primary_key=True,
+    )
+    account_id_2: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("accounts.id", name="fk_user_matches_account_2"),
+        primary_key=True,
+    )
+    is_matched: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

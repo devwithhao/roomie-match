@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from app.schemas.matching.profile import MatchingProfileResponse
+
+class MatchActionRequest(BaseModel):
+    target_account_id: int
 
 class RoomMatchRequest(BaseModel):
     budget: Optional[int] = None
@@ -30,7 +34,25 @@ class RoommateMatchRequest(BaseModel):
     habit: Optional[List[str]] = None
     introduce: Optional[str] = None
 
+class MatchContactSocials(BaseModel):
+    facebook: str = ""
+    instagram: str = ""
+    twitter: str = ""
+
+class MatchContact(BaseModel):
+    email: str = ""
+    phone: str = ""
+    socials: MatchContactSocials = MatchContactSocials()
+
 class RoommateMatchResult(BaseModel):
+    id: str
+    name: str
+    area: Optional[str] = None
+    joinedAt: str
+    avatar: Optional[str] = None
+    contact: MatchContact
+    
+    # Old fields retained for backward compatibility
     account_id: int
     full_name: str
     avatar_url: Optional[str] = None
@@ -39,3 +61,36 @@ class RoommateMatchResult(BaseModel):
 
 class RoommateMatchResponse(BaseModel):
     results: List[RoommateMatchResult]
+
+class RoommateSuggestionResponse(BaseModel):
+    my_profile: MatchingProfileResponse
+    matches: List[RoommateMatchResult]
+
+class RejectHistoryItem(BaseModel):
+    id: str
+    name: str
+    area: Optional[str] = None
+    joinedAt: str
+    avatar: Optional[str] = None
+    contact: MatchContact
+
+    account_id: int
+    full_name: str
+    avatar_url: Optional[str] = None
+    rejected_at: datetime
+
+class MatchHistoryItem(BaseModel):
+    id: str
+    name: str
+    area: Optional[str] = None
+    joinedAt: str
+    avatar: Optional[str] = None
+    contact: MatchContact
+
+    account_id: int
+    full_name: str
+    avatar_url: Optional[str] = None
+    matched_at: datetime
+    is_matched: bool
+
+

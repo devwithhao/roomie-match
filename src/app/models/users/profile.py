@@ -23,6 +23,9 @@ class Profile(Base):
         nullable=True,
     )
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    facebook: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    instagram: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    twitter: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

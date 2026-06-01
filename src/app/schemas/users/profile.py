@@ -24,6 +24,9 @@ class ProfileOut(BaseModel):
     phone: str | None = None
     gender: Literal["male", "female", "other"] | None = None
     avatar_url: str | None = None
+    facebook: str | None = None
+    instagram: str | None = None
+    twitter: str | None = None
 
 
 class UpdateProfileIn(BaseModel):
@@ -31,6 +34,9 @@ class UpdateProfileIn(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
     gender: Literal["male", "female", "other"] | None = Field(default=None)
     avatar_url: str | None = Field(default=None, max_length=500)
+    facebook: str | None = Field(default=None, max_length=255)
+    instagram: str | None = Field(default=None, max_length=255)
+    twitter: str | None = Field(default=None, max_length=255)
 
     @model_validator(mode="after")
     def validate_at_least_one_field(self) -> "UpdateProfileIn":
@@ -39,6 +45,9 @@ class UpdateProfileIn(BaseModel):
             and self.phone is None
             and self.gender is None
             and self.avatar_url is None
+            and self.facebook is None
+            and self.instagram is None
+            and self.twitter is None
         ):
             raise ValueError("At least one field must be provided")
         return self
