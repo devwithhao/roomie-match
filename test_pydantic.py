@@ -1,17 +1,7 @@
-﻿from datetime import datetime
-from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, ConfigDict, model_validator
-
-
-class ChatMessageBase(BaseModel):
-    role: str
-    content: str
-    rooms_data: Optional[List[Dict[str, Any]]] = None
-
-
-class ChatMessageCreate(ChatMessageBase):
-    pass
-
+from typing import Any, List, Optional, Dict
+from datetime import datetime
+import json
 
 class ChatMessageResponse(BaseModel):
     id: int
@@ -24,7 +14,6 @@ class ChatMessageResponse(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def process_content_json(cls, data: Any) -> Any:
-        import json
         if hasattr(data, 'content'):
             res = {
                 "id": data.id,
@@ -42,33 +31,17 @@ class ChatMessageResponse(BaseModel):
             except Exception:
                 pass
             return res
-        elif isinstance(data, dict) and 'content' in data:
-            try:
-                parsed = json.loads(data['content'])
-                if isinstance(parsed, dict) and "content" in parsed:
-                    data['content'] = parsed['content']
-                    data['rooms_data'] = parsed.get("rooms_data")
-            except:
-                pass
         return data
-
+        
     model_config = ConfigDict(from_attributes=True)
 
+class MockModel:
+    def __init__(self):
+        self.id = 1
+        self.session_id = 1
+        self.role = "assistant"
+        self.content = '{"content": "Hello", "rooms_data": [{"id": 1, "title": "Room 1"}]}'
+        self.created_at = datetime.now()
 
-class ChatSessionCreate(BaseModel):
-    title: Optional[str] = "New Chat"
-
-
-class ChatSessionResponse(BaseModel):
-    id: int
-    user_id: int
-    title: Optional[str]
-    created_at: datetime
-    updated_at: datetime
-    messages: List[ChatMessageResponse] = []
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ChatRequest(BaseModel):
-    content: str
+mock = MockModel()
+print(ChatMessageResponse.model_validate(mock).model_dump_json())

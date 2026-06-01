@@ -1,4 +1,5 @@
-﻿from typing import Optional
+﻿import json
+from typing import Optional
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ def get_room_search_tool(db: Session) -> StructuredTool:
         max_price: Optional[int] = None,
         room_type: Optional[str] = None,
     ) -> str:
-        """Sử dụng công cụ này ĐỂ TÌM KIẾM phòng trọ từ Database khi người dùng có nhu cầu tìm phòng. Trả về văn bản chứa thông tin phòng."""
+        """Sử dụng công cụ này ĐỂ TÌM KIẾM phòng trọ từ Database khi người dùng có nhu cầu tìm phòng. Trả về văn bản JSON chứa thông tin phòng."""
         try:
             # Query cơ bản
             query = select(Room).where(Room.status == "available")
@@ -45,22 +46,35 @@ def get_room_search_tool(db: Session) -> StructuredTool:
             rooms = db.scalars(query.limit(5)).all()
 
             if not rooms:
-                return f"[KẾT QUẢ TỪ DATABASE]: KHÔNG TÌM THẤY phòng nào. BẠN PHẢI BÁO CHO USER BIẾT LÀ KHÔNG CÓ PHÒNG NÀO THỎA MÃN!"
+                return json.dumps({
+                    "message": "Không tìm thấy kết quả nào. Hãy báo user là hết phòng.",
+                    "rooms_data": []
+                }, ensure_ascii=False)
 
-            results = ["[KẾT QUẢ TỪ DATABASE]: Đã tìm thấy các phòng sau. BẠN BẮT BUỘC PHẢI LIỆT KÊ CHI TIẾT TỪNG PHÒNG NÀY TRONG CÂU TRẢ LỜI CỦA MÌNH CHO USER ĐỌC:"]
+            rooms_data = []
             for r in rooms:
                 address = r.full_address or f"{r.district}, {r.city}"
-                results.append(
-                    f"- {r.title} (ID: {r.id})\n"
-                    f"  Giá: {r.price:,.0f} VNĐ/tháng\n"
-                    f"  Vị trí: {address}\n"
-                    f"  Loại phòng: {r.room_type}, Diện tích: {r.area}m2\n"
-                    f"  Liên hệ: {r.contact_phone} ({r.contact_name})"
-                )
+                
+                # Fetch thumbnail if any
+                thumbnail = None
+                if hasattr(r, 'images') and r.images:
+                    thumbnail = r.images[0].image_url
+                
+                rooms_data.append({
+                    "id": r.id,
+                    "title": r.title,
+                    "price": r.price,
+                    "thumbnail": thumbnail or "https://via.placeholder.com/150",
+                    "address": address
+                })
 
-            return "\n".join(results)
+            return json.dumps({
+                "message": f"Tìm thấy {len(rooms_data)} phòng phù hợp. Hãy trả lời user một câu ngắn gọn như 'Dưới đây là các phòng tìm thấy:' vì FE đã tự render JSON rồi.",
+                "rooms_data": rooms_data
+            }, ensure_ascii=False)
+
         except Exception as e:
-            return f"Lỗi khi truy vấn: {str(e)}"
+            return json.dumps({"message": f"Lỗi khi truy vấn: {str(e)}", "rooms_data": []}, ensure_ascii=False)
 
     return StructuredTool.from_function(
         func=search_rooms,
@@ -68,3 +82,4 @@ def get_room_search_tool(db: Session) -> StructuredTool:
         description="Tìm kiếm danh sách phòng trọ đang trống trong hệ thống dựa vào quận, giá tiền và loại phòng.",
         args_schema=RoomSearchInput,
     )
+
