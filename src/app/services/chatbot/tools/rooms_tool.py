@@ -13,9 +13,9 @@ class RoomSearchInput(BaseModel):
         default=None,
         description="CHỈ truyền vào TÊN MỘT QUẬN DUY NHẤT (VD: 'Bình Thạnh', 'Thủ Đức'). Không truyền nhiều quận cùng lúc.",
     )
-    max_price: Optional[int] = Field(
+    max_price: Optional[str] = Field(
         default=None,
-        description="Mức giá tối đa mong muốn (đơn vị VNĐ). VD: 4000000 hoặc 5000000",
+        description="Mức giá tối đa mong muốn (đơn vị VNĐ). VD: '4000000' hoặc '5000000'",
     )
     room_type: Optional[str] = Field(
         default=None,
@@ -26,7 +26,7 @@ class RoomSearchInput(BaseModel):
 def get_room_search_tool(db: Session) -> StructuredTool:
     def search_rooms(
         district: Optional[str] = None,
-        max_price: Optional[int] = None,
+        max_price: Optional[str] = None,
         room_type: Optional[str] = None,
     ) -> str:
         """Sử dụng công cụ này ĐỂ TÌM KIẾM phòng trọ từ Database khi người dùng có nhu cầu tìm phòng. Trả về văn bản JSON chứa thông tin phòng."""
@@ -39,7 +39,7 @@ def get_room_search_tool(db: Session) -> StructuredTool:
                 clean_district = district.split(" ho")[0].split(" hay")[0].strip()
                 query = query.where(Room.district.ilike(f"%{clean_district}%"))
             if max_price:
-                query = query.where(Room.price <= max_price)
+                query = query.where(Room.price <= int(max_price))
             if room_type:
                 query = query.where(Room.room_type.ilike(f"%{room_type}%"))
 
