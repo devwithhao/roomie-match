@@ -65,6 +65,10 @@ class RoommateMatchResponse(BaseModel):
 class RoommateSuggestionResponse(BaseModel):
     my_profile: MatchingProfileResponse
     matches: List[RoommateMatchResult]
+    total: int = 0
+    page: int = 1
+    size: int = 5
+    total_pages: int = 0
 
 class RejectHistoryItem(BaseModel):
     id: str

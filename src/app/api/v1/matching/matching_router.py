@@ -54,18 +54,26 @@ def match_roommates(
 
 @router.get("/roommates/suggestions", response_model=RoommateSuggestionResponse)
 def get_roommate_suggestions(
+    page: int = 1,
+    size: int = 5,
     account: Account = Depends(get_current_account),
     db: Session = Depends(get_db)
 ):
     """
-    Get the current user's matching profile and top 3 recommended roommates.
+    Get the current user's matching profile and recommended roommates.
     """
     my_profile = MatchingProfileService(db).get_matching_profile(account.id)
-    results = RoommateMatcherService(db).match_roommates(account.id)
+    results, total = RoommateMatcherService(db).get_suggestions(account.id, page, size)
+    
+    total_pages = (total + size - 1) // size if size > 0 else 0
     
     return RoommateSuggestionResponse(
         my_profile=my_profile,
-        matches=results[:3]
+        matches=results,
+        total=total,
+        page=page,
+        size=size,
+        total_pages=total_pages
     )
 
 @router.post("/profile", response_model=MatchingProfileResponse)

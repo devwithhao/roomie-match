@@ -23,6 +23,7 @@ class UserPreference(Base):
     target_gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     habit: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     introduce: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_accounts: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
