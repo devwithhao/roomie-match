@@ -225,7 +225,8 @@ Neu module lon dan, van giu nguyen structure tren va tach nho file theo use case
 
 ## 8. Chay ung dung va auth MVP
 
-- Cau hinh bien moi truong: sao chep [`.env.example`](.env.example) thanh `.env` va dien `DATABASE_URL`, `JWT_SECRET`.
+- Cau hinh bien moi truong: sao chep [`.env.example`](.env.example) thanh `.env` va dien `DATABASE_URL`, `JWT_SECRET`, `GROQ_API_KEY`.
+  - Neu su dung chatbot, `GROQ_API_KEY` phai co gia tri hop le.
 - Cai dat: `pip install -e ".[dev]"` (tu thu muc repo).
 - Migration: `alembic upgrade head` (tu thu muc repo, dung `alembic.ini`).
 - Chay server: `uvicorn app.main:app --reload --app-dir src`.
