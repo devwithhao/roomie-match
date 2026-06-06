@@ -11,6 +11,7 @@ from app.schemas.matching.profile import (
     CreateMatchingProfileRequest,
     MatchingProfileResponse,
 )
+from app.services.matching.roommate_matcher import RoommateMatcherService
 
 def parse_budget(budget_str: str | None) -> tuple[int | None, int | None]:
     if not budget_str:
@@ -92,6 +93,10 @@ class MatchingProfileService:
 
         self._preferences.update(pref)
         self._db.commit()
+
+        # Generate suggestions
+        matcher_service = RoommateMatcherService(self._db)
+        matcher_service.generate_suggestions(account.id)
 
         return MatchingProfileResponse(
             account_id=account.id,
