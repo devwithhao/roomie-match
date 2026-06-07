@@ -1,244 +1,201 @@
-# RoomieMatch Backend Skeleton (FastAPI Monolith)
+# RoomieMatch Backend
 
-## 1. Phan tich bai toan va huong kien truc
+RoomieMatch là backend FastAPI theo hướng modular monolith. Project vẫn giữ một service và một database chính, nhưng code được chia theo feature để team có thể thêm `admin`, `landlord`, payment, matching, chatbot... mà không làm rối các lớp nghiệp vụ.
 
-RoomieMatch la ung dung web giai quyet 3 nhu cau chinh:
-- Tim phong tro/can ho.
-- Ghep nguoi o chung phu hop.
-- Ket noi va trao doi giua nguoi dung.
+## Kiến Trúc
 
-Voi team 3-5 nguoi, huong **modular monolith** la phu hop nhat:
-- Mot service duy nhat, trien khai va van hanh don gian.
-- Mot database chinh (**MySQL 8+**) cho auth va du lieu nghiep vu (xem [`docs/database.md`](docs/database.md)).
-- Chia module theo domain de code khong bi roi khi du an lon dan.
+Public API v1 hiện được giữ nguyên để tương thích frontend:
 
-### Domain chinh du kien
-- `users`: dang ky/dang nhap, ho so, thong tin preference.
-- `rooms`: dang tin phong, chi tiet phong, tim kiem va loc.
-- `matching`: xu ly tieu chi ghep, tinh diem phu hop, de xuat.
-- `messaging`: hoi thoai va trao doi thong tin.
-- `rental_requests`: gui/duyet/tu choi yeu cau thue hoac o ghep.
-- `shared`: thanh phan dung chung (errors, constants, pagination, utility).
+- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`
+- `/api/v1/users/*`
+- `/api/v1/posts/*`
+- `/api/v1/rooms/*`
+- `/api/v1/matching/*`
+- `/api/v1/packages/*`
+- `/api/v1/chatbot/*`
 
-### Nguyen tac to chuc de tranh code roi
-- Luon di theo chieu phu thuoc: `api -> service -> repository -> database`.
-- Khong de business logic trong router.
-- Tach `schemas` (Pydantic DTO) khoi `models` (ORM entity).
-- Han che import cheo giua module; neu can, dung service boundary ro rang.
-- Moi module co day du lop API/Service/Schema/Repository de de phan cong nguoi lam.
-
-## 2. Cau truc project de xuat
-
-Muc tieu cau truc:
-- De doc code va debug.
-- De onboard dev moi.
-- De chia viec theo module, giam conflict khi lam song song.
+Code chính nằm trong `src/app/features`:
 
 ```text
-roomie_match_project/
-|-- src/
-|   |-- app/
-|   |   |-- api/
-|   |   |   |-- v1/
-|   |   |   |   |-- users/
-|   |   |   |   |-- rooms/
-|   |   |   |   |-- matching/
-|   |   |   |   |-- messaging/
-|   |   |   |   `-- rental_requests/
-|   |   |-- services/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- schemas/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- models/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- repositories/
-|   |   |   |-- users/
-|   |   |   |-- rooms/
-|   |   |   |-- matching/
-|   |   |   |-- messaging/
-|   |   |   `-- rental_requests/
-|   |   |-- core/
-|   |   |-- database/
-|   |   `-- shared/
-|   |       |-- constants/
-|   |       |-- errors/
-|   |       |-- pagination/
-|   |       `-- utils/
-|   |-- migrations/
-|   |   `-- versions/
-|   `-- tests/
-|       |-- unit/
-|       |   |-- users/
-|       |   |-- rooms/
-|       |   |-- matching/
-|       |   |-- messaging/
-|       |   `-- rental_requests/
-|       `-- integration/
-|           |-- users/
-|           |-- rooms/
-|           |-- matching/
-|           |-- messaging/
-|           `-- rental_requests/
-|-- docs/
-`-- scripts/
+src/app/
+|-- api/v1/router.py              # aggregate router cho API v1
+|-- core/                         # config, security
+|-- database/                     # Base, session, model registry
+|-- features/
+|   |-- users/                    # auth, account, role, profile
+|   |-- rooms/                    # posts, saved rooms, reviews, amenities
+|   |-- matching/                 # matching profile, rooms, roommates
+|   |-- packages/                 # packages, purchases, entitlements, webhook
+|   |-- rental_requests/          # rental history và request flow sau này
+|   `-- chatbot/                  # chat sessions, messages, tools
+|-- shared/                       # pagination và helper dùng chung
+src/migrations/                   # Alembic migrations
+src/tests/                        # integration tests
+docs/                             # tài liệu API/database bổ sung
 ```
 
-## 3. Giai thich tung thu muc
+Mỗi feature gồm các nhóm quen thuộc: `routers`, `schemas`, `services`, `repositories`, `models` khi feature đó cần. Luồng phụ thuộc mặc định:
 
-### `src/app/api/v1/*`
-- Chua router theo module.
-- Chi tiep nhan request, goi service, tra response schema.
-- Khong chua logic nghiep vu phuc tap.
-
-### `src/app/services/*`
-- Noi dat use case/business logic.
-- Dieu phoi du lieu tu repository, ap quy tac nghiep vu.
-- Moi service module doc lap de de test don vi.
-
-### `src/app/schemas/*`
-- Pydantic schema cho request/response.
-- Validation input/output va contract API.
-- Khong chua query DB.
-
-### `src/app/models/*`
-- ORM model mapping bang du lieu.
-- Khong dat API schema vao day de tranh tron lop.
-
-### `src/app/repositories/*`
-- Chiu trach nhiem truy van DB.
-- Tach rieng query logic khoi service.
-- Ho tro doi ORM hoac toi uu query ma khong anh huong router.
-
-### `src/app/database/`
-- Ket noi DB, session management, base metadata.
-- Noi tap trung cac cau hinh persistence.
-
-### `src/app/core/`
-- Cac thanh phan he thong dung chung: config, security helper, startup/shutdown hooks.
-
-### `src/app/shared/*`
-- Cong cu dung chung toan he thong:
-  - `constants`: hang so dung chung.
-  - `errors`: custom exception va mapping loi.
-  - `pagination`: helper phan trang.
-  - `utils`: utility trung lap.
-
-### `src/migrations/`
-- Alembic migration scripts.
-- `versions/` chua file version migration.
-
-### `src/tests/`
-- `unit/`: test service, utils, validation theo module.
-- `integration/`: test luong API-DB.
-
-### `docs/`
-- Luu convention, ADR nho, guideline nghiep vu cho team.
-
-### `scripts/`
-- Luu script phuc vu local dev/CI (khong dat logic nghiep vu).
-
-## 4. Cach su dung FastAPI trong project
-
-### Nguyen tac phan lop request
-1. Client goi HTTP endpoint.
-2. Router nhan request va parse bang Pydantic schema.
-3. Router goi service use case.
-4. Service goi repository de doc/ghi DB.
-5. Repository thao tac ORM/session.
-6. Service tra ket qua da xu ly.
-7. Router map ve response schema va tra cho client.
-
-### Luong tong quan
-
-```mermaid
-flowchart LR
-    client[Client] --> apiRouter[API_Router]
-    apiRouter --> serviceLayer[Service_Layer]
-    serviceLayer --> repositoryLayer[Repository_Layer]
-    repositoryLayer --> mysqlDB[MySQL]
-    serviceLayer --> responseSchema[Response_Schema]
-    responseSchema --> client
+```text
+router -> service -> repository -> model/database
 ```
 
-## 5. Quy tac de tranh conflict khi nhieu nguoi lam
+Feature được dùng `core`, `database`, `shared`. Khi cần dùng logic của feature khác, ưu tiên gọi qua service/public contract thay vì import sâu vào repository nội bộ.
 
-### Quy tac dat code
-- 1 module 1 nhom file theo duong dan co dinh: `api`, `services`, `schemas`, `models`, `repositories`.
-- Ten file uu tien dang `snake_case`, ten class dang `PascalCase`.
-- Dat ten service theo use case, vi du `create_room_service`.
-- Dat ten router theo resource, vi du `rooms_router`.
+## Chạy Local Bằng Python
 
-### Quy tac phoi hop team
-- Moi nguoi phu trach 1-2 module domain ro rang.
-- PR chi nen tap trung mot module/chu de de de review.
-- Khong sua file shared neu khong can thiet; neu sua can note ro impact.
-- Khi can dung logic module khac, goi qua service contract thay vi import sau.
+Yêu cầu Python 3.10+ và MySQL 8+.
 
-### Quy tac import va boundary
-- `api` khong import truc tiep `models`.
-- `repository` khong import `api`.
-- `shared` khong phu thuoc module cu the.
-- Tranh vong lap import; neu gap, tach interface/contract vao `shared`.
+Nên dùng virtual environment để thư viện của project không bị cài vào Python global của máy.
 
-## 6. Cach them module moi (vi du `payment`)
+Tạo và bật venv trên Windows PowerShell:
 
-Khi can them domain moi, lam theo checklist:
-1. Tao cac thu muc:
-   - `src/app/api/v1/payment/`
-   - `src/app/services/payment/`
-   - `src/app/schemas/payment/`
-   - `src/app/models/payment/`
-   - `src/app/repositories/payment/`
-   - `src/tests/unit/payment/`
-   - `src/tests/integration/payment/`
-2. Dang ky router cua module vao API v1.
-3. Them migration neu co thay doi DB.
-4. Cap nhat tai lieu module trong `docs/`.
-5. Them test unit va integration toi thieu cho use case chinh.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-Neu module lon dan, van giu nguyen structure tren va tach nho file theo use case.
+Nếu đang dùng Command Prompt:
 
-## 7. De xuat thu vien su dung va vai tro
+```bat
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
 
-- **FastAPI**: framework API chinh, async-friendly, docs tu dong.
-- **Uvicorn**: ASGI server de chay app FastAPI.
-- **Pydantic**: validate du lieu request/response, tao schema ro rang.
-- **SQLAlchemy**: ORM de thao tac MySQL, linh hoat va pho bien.
-- **Alembic**: quan ly migration version hoa schema DB.
-- **MySQL**: co so du lieu chinh (driver `pymysql`).
-- **Redis (tuy chon)**:
-  - Dung cho cache ket qua tim kiem/matching.
-  - Dung cho rate-limit, session ephemeral, queue nhe.
-  - Chua can bat buoc o giai doan dau, co the bo sung sau.
+Kiểm tra Python đang trỏ vào venv:
 
-## 8. Chay ung dung va auth MVP
+```bash
+python -c "import sys; print(sys.executable)"
+```
 
-- Cau hinh bien moi truong: sao chep [`.env.example`](.env.example) thanh `.env` va dien `DATABASE_URL`, `JWT_SECRET`, `GROQ_API_KEY`.
-  - Neu su dung chatbot, `GROQ_API_KEY` phai co gia tri hop le.
-- Cai dat: `pip install -e ".[dev]"` (tu thu muc repo).
-- Migration: `alembic upgrade head` (tu thu muc repo, dung `alembic.ini`).
-- Chay server: `uvicorn app.main:app --reload --app-dir src`.
-- Chạy server public :'uvicorn app.main:app --app-dir src --host 0.0.0.0 --port 8000 --reload'.
-### API auth (v1)
+Kết quả nên nằm trong `.venv`, ví dụ `...\roomie_match_project\.venv\Scripts\python.exe`.
 
-- `POST /api/v1/auth/register` — email, password, `display_name` (ten hien thi; tam luu cot `accounts.username`), `account_type`: `tenant` | `landlord`.
-- `POST /api/v1/auth/login` — email, password.
-- `GET /api/v1/auth/me` — header `Authorization: Bearer <token>`.
+Sau khi đã bật venv:
 
-Chua lam trong phase nay: xac thuc email, OAuth, refresh token, API admin.
+```bash
+cp .env.example .env
+python -m pip install -U pip
+python -m pip install -e ".[dev]"
+alembic upgrade head
+uvicorn app.main:app --reload --app-dir src
+```
 
-## 9. Ghi chu skeleton ban dau
+Mặc định app chạy ở `http://127.0.0.1:8000`.
 
-- Ban dau skeleton chi co layout + tai lieu; auth MVP da bo sung code, migration va test.
+Kiểm tra nhanh:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+## Migration
+
+Project dùng Alembic. Revision hiện được đặt theo dạng tuần tự để dễ đọc:
+
+```text
+001_initial_roles_accounts
+002_add_rooms_and_favorites
+...
+010_add_suggested_accounts
+```
+
+Quy tắc làm việc:
+
+- Migration đã apply lên production thì không sửa trực tiếp; tạo revision mới.
+- Khi sửa ORM model, tạo migration bằng `alembic revision --autogenerate -m "message"` rồi review file sinh ra.
+- Data bắt buộc cho hệ thống, ví dụ role mặc định, có thể nằm trong migration.
+- Data mẫu/demo/local không đặt trong migration; dùng seed script ở phần dưới.
+
+Lưu ý: các revision id đã được chuẩn hóa lại. Nếu database local của bạn đã migrate bằng revision id cũ, cách gọn nhất là drop/recreate DB local rồi chạy lại `alembic upgrade head`. Nếu cần giữ data cũ, cần stamp lại Alembic version thủ công sau khi đổi revision.
+
+## Chạy Bằng Docker Compose
+
+Docker Compose sẽ start MySQL, chờ DB healthy, tự chạy migration, rồi start FastAPI.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+App chạy ở `http://127.0.0.1:8000`. MySQL được expose qua port `3306` mặc định và có volume `mysql_data`.
+
+## Test
+
+Integration tests mặc định dùng SQLite in-memory, không cần MySQL:
+
+```bash
+python -m pytest
+```
+
+Nếu muốn test với database riêng:
+
+```bash
+set TEST_DATABASE_URL=mysql+pymysql://user:pass@127.0.0.1:3306/roomie_match_test?charset=utf8mb4
+python -m pytest
+```
+
+## Data Mẫu
+
+Migration chỉ nên seed dữ liệu bắt buộc cho hệ thống, ví dụ `roles`. Data demo/local nên đặt trong script riêng để tránh production bị chèn dữ liệu mẫu.
+
+Sau khi chạy migration, seed data mẫu:
+
+```bash
+python scripts/seed_sample_data.py
+```
+
+Nếu đang dùng Docker Compose:
+
+```bash
+docker compose exec api python scripts/seed_sample_data.py
+```
+
+Script seed hiện tại idempotent, có thể chạy lại nhiều lần. Script tạo dữ liệu mẫu cho các bảng trong migration:
+
+- `roles`, `accounts`, `profiles`
+- `rooms`, `posts`, `room_images`, `amenities`, `room_amenities`
+- `favorites`, `rental_history`, `reviews`
+- `packages`, `purchases`, `entitlements`
+- `user_preferences`, `user_matches`, `user_rejects`
+- `chat_sessions`, `chat_messages`
+
+Tài khoản mẫu:
+
+- `tenant.demo@example.com` / `password123`
+- `landlord.demo@example.com` / `password123`
+- `admin.demo@example.com` / `password123`
+
+Seed có 10 room và 10 post active. Địa chỉ room dùng chuỗi tiếng Việt có dấu để FE search theo API:
+
+- `city=Thành Phố Hồ Chí Minh`: `Quận 1`, `Quận Bình Thạnh`, `Thành phố Thủ Đức`, `Quận 7`, `Quận Gò Vấp`, `Quận Tân Bình`
+- `city=Đồng Nai`: `Thành phố Biên Hòa`, `Huyện Long Thành`, `Huyện Nhơn Trạch`, `Huyện Trảng Bom`
+
+Vì API filter hiện tại so sánh exact match, khi test cần truyền đúng chuỗi:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/posts?city=Thành%20Phố%20Hồ%20Chí%20Minh"
+curl "http://127.0.0.1:8000/api/v1/posts?city=Đồng%20Nai&district=Huyện%20Long%20Thành"
+```
+
+## Thêm Feature Mới
+
+Ví dụ thêm `admin`:
+
+1. Tạo `src/app/features/admin/`.
+2. Thêm `routers`, `schemas`, `services`, `repositories`, `models` nếu cần.
+3. Đăng ký router mới trong `src/app/api/v1/router.py`.
+4. Nếu có model mới, import model trong `src/app/database/model_registry.py`.
+5. Tạo migration Alembic nếu thay đổi DB.
+6. Thêm tests trong `src/tests/integration/admin/`.
+
+Với feature `landlord`, nên tách các use case chủ trọ như quản lý phòng, đăng tin, duyệt request vào feature riêng khi nghiệp vụ đủ lớn. Nếu endpoint chỉ là một phần của rooms/post hiện tại, đặt trong `features/rooms` trước để tránh tách quá sớm.
+
+## Các Vấn Đề Cấu Trúc Đã Xử Lý
+
+- Chuyển code từ layer top-level `models/schemas/services/repositories/api/v1/*` sang `features/*`.
+- Tách `packages` ra file rõ nghĩa: `schemas.py`, `service.py`, `repositories.py`, `routers/*`.
+- Xóa skeleton root `roomie_match/`, TODO test root, và script thử nghiệm `test_pydantic.py`.
+- Xóa route matching rỗng/cũ và các folder API cũ không còn được import.
+- Thêm `database/model_registry.py` để Alembic và tests luôn load đủ ORM metadata, bao gồm chatbot models.
+- Sửa package tests dùng fixture `client/db_session` và path `/api/v1/packages/`.
+- Giữ nguyên public API v1, table names, columns, migration history và JWT payload.

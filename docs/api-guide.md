@@ -127,7 +127,8 @@ Query params:
 - `sort_by`: `newest`, `price_asc`, hoặc `price_desc`.
 
 Ví dụ:
-- `/api/v1/posts?page=1&page_size=20&city=Ho%20Chi%20Minh&sort_by=newest`
+- `/api/v1/posts?page=1&page_size=20&city=Thành%20Phố%20Hồ%20Chí%20Minh&sort_by=newest`
+- `/api/v1/posts?city=Đồng%20Nai&district=Huyện%20Long%20Thành`
 - `/api/v1/posts?min_price=2000000&max_price=5000000&amenity_ids=1&amenity_ids=3`
 
 Lưu ý:
