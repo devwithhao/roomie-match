@@ -1,6 +1,6 @@
 """initial roles and accounts tables with seed roles
 
-Revision ID: 001_initial
+Revision ID: 001_initial_roles_accounts
 Revises:
 Create Date: 2026-05-04
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import mysql
 
-revision: str = "001_initial"
+revision: str = "001_initial_roles_accounts"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

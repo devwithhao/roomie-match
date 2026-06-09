@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.models.rooms.post import Post
-from app.models.rooms.room import Room
+from app.features.rooms.models.post import Post
+from app.features.rooms.models.room import Room
 
 
 def _register_user(client, *, email: str, display_name: str, account_type: str):

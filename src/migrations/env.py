@@ -32,25 +32,7 @@ _load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.database.base import Base  # noqa: E402
-from app.models.rooms import amenity as amenity_model  # noqa: F401, E402
-from app.models.rooms import favorite as favorite_model  # noqa: F401, E402
-from app.models.rooms import post as post_model  # noqa: F401, E402
-from app.models.rooms import review as review_model  # noqa: F401, E402
-from app.models.rooms import room as room_model  # noqa: F401, E402
-from app.models.rental_requests import rental_history as rental_history_model  # noqa: F401, E402
-from app.models.rooms import room_amenity as room_amenity_model  # noqa: F401, E402
-from app.models.rooms import room_image as room_image_model  # noqa: F401, E402
-from app.models.users import account as account_model  # noqa: F401, E402
-from app.models.users import profile as profile_model  # noqa: F401, E402
-from app.models.matching import preference as preference_model  # noqa: F401, E402
-from app.models.matching import match as match_model  # noqa: F401, E402
-from app.models.matching import reject as reject_model  # noqa: F401, E402
-from app.models.users import role as role_model  # noqa: F401, E402
-from app.models.packages import package as package_model  # noqa: F401, E402
-from app.models.packages import purchase as purchase_model  # noqa: F401, E402
-from app.models.packages import entitlement as entitlement_model  # noqa: F401, E402
-
-
+import app.database.model_registry  # noqa: F401, E402
 
 config = context.config
 

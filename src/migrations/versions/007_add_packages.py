@@ -1,6 +1,6 @@
 """add packages, purchases, entitlements tables
 
-Revision ID: 007
+Revision ID: 007_add_packages
 Revises: 006_create_reviews_table
 Create Date: 2024-05-18 10:00:00.000000
 

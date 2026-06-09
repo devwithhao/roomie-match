@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.models.rental_requests.rental_history import RentalHistory
-from app.models.rooms.post import Post
-from app.models.rooms.room import Room
+from app.features.rental_requests.models.rental_history import RentalHistory
+from app.features.rooms.models.post import Post
+from app.features.rooms.models.room import Room
 
 
 def _register_user(client, *, email: str, display_name: str, account_type: str):

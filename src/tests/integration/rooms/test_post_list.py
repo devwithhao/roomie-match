@@ -3,13 +3,14 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models.rooms.amenity import Amenity
-from app.models.rooms.post import Post
-from app.models.rooms.room import Room
-from app.models.rooms.room_amenity import RoomAmenity
-from app.models.rooms.room_image import RoomImage
-from app.models.users.account import Account
-from app.models.users.role import Role
+from app.features.rooms.models.amenity import Amenity
+from app.features.rooms.models.post import Post
+from app.features.rooms.models.room import Room
+from app.features.rooms.models.room_amenity import RoomAmenity
+from app.features.rooms.models.room_image import RoomImage
+from app.features.users.models.account import Account
+from app.features.users.models.profile import Profile
+from app.features.users.models.role import Role
 
 
 def _make_landlord(db: Session) -> Account:
@@ -19,9 +20,16 @@ def _make_landlord(db: Session) -> Account:
         username="LandlordA",
         password_hash="hashed",
         role_id=role.id,
-        avatar_url="https://img.example.com/avatar.jpg",
     )
     db.add(acc)
+    db.flush()
+    db.add(
+        Profile(
+            account_id=acc.id,
+            full_name="Landlord A",
+            avatar_url="https://img.example.com/avatar.jpg",
+        )
+    )
     db.flush()
     return acc
 

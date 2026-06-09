@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.models.users.profile import Profile
+from app.features.users.models.profile import Profile
 
 
 def test_get_my_profile_returns_account_and_profile(client, db_session):
@@ -17,15 +17,12 @@ def test_get_my_profile_returns_account_and_profile(client, db_session):
     token = register.json()["access_token"]
     account_id = register.json()["user"]["id"]
 
-    db_session.add(
-        Profile(
-            account_id=account_id,
-            full_name="Nguyen Van A",
-            phone="0901234567",
-            gender="male",
-            avatar_url="https://example.com/avatar.jpg",
-        )
-    )
+    profile = db_session.get(Profile, account_id)
+    assert profile is not None
+    profile.full_name = "Nguyen Van A"
+    profile.phone = "0901234567"
+    profile.gender = "male"
+    profile.avatar_url = "https://example.com/avatar.jpg"
     db_session.commit()
 
     response = client.get(
@@ -47,7 +44,7 @@ def test_get_my_profile_requires_auth(client):
     assert response.status_code == 401
 
 
-def test_get_my_profile_returns_404_when_missing(client):
+def test_get_my_profile_returns_404_when_missing(client, db_session):
     register = client.post(
         "/api/v1/auth/register",
         json={
@@ -59,6 +56,12 @@ def test_get_my_profile_returns_404_when_missing(client):
     )
     assert register.status_code == 200
     token = register.json()["access_token"]
+    account_id = register.json()["user"]["id"]
+
+    profile = db_session.get(Profile, account_id)
+    assert profile is not None
+    db_session.delete(profile)
+    db_session.commit()
 
     response = client.get(
         "/api/v1/users/me/profile",
@@ -108,7 +111,7 @@ def test_upsert_my_profile_requires_auth(client):
     assert response.status_code == 401
 
 
-def test_upsert_my_profile_creates_when_missing_full_name_required(client):
+def test_upsert_my_profile_creates_when_missing_full_name_required(client, db_session):
     register = client.post(
         "/api/v1/auth/register",
         json={
@@ -120,6 +123,12 @@ def test_upsert_my_profile_creates_when_missing_full_name_required(client):
     )
     assert register.status_code == 200
     token = register.json()["access_token"]
+    account_id = register.json()["user"]["id"]
+
+    profile = db_session.get(Profile, account_id)
+    assert profile is not None
+    db_session.delete(profile)
+    db_session.commit()
 
     response = client.patch(
         "/api/v1/users/me/profile",
@@ -145,15 +154,12 @@ def test_upsert_my_profile_updates_fields(client, db_session):
     token = register.json()["access_token"]
     account_id = register.json()["user"]["id"]
 
-    db_session.add(
-        Profile(
-            account_id=account_id,
-            full_name="Old Name",
-            phone="0900000000",
-            gender="female",
-            avatar_url="https://example.com/old.jpg",
-        )
-    )
+    profile = db_session.get(Profile, account_id)
+    assert profile is not None
+    profile.full_name = "Old Name"
+    profile.phone = "0900000000"
+    profile.gender = "female"
+    profile.avatar_url = "https://example.com/old.jpg"
     db_session.commit()
 
     response = client.patch(
@@ -187,12 +193,9 @@ def test_upsert_my_profile_requires_at_least_one_field_when_profile_exists(clien
     token = register.json()["access_token"]
     account_id = register.json()["user"]["id"]
 
-    db_session.add(
-        Profile(
-            account_id=account_id,
-            full_name="Any Name",
-        )
-    )
+    profile = db_session.get(Profile, account_id)
+    assert profile is not None
+    profile.full_name = "Any Name"
     db_session.commit()
 
     response = client.patch(
