@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     # Neu true: loi 500 tu register se kem thong bao loi DB (chi localhost/debug)
     app_debug: bool = Field(default=False, validation_alias="APP_DEBUG")
+    google_client_id: str = ""
 
 
 settings = Settings()

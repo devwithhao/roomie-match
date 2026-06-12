@@ -8,7 +8,7 @@ from app.database.session import get_db
 from app.features.users.models.account import Account
 from app.features.users.models.role import Role
 from app.features.users.models.profile import Profile
-from app.features.users.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
+from app.features.users.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest
 from app.features.users.services.auth_service import AuthService
 
 router = APIRouter()
@@ -22,6 +22,11 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)) -> TokenRespo
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     return AuthService(db).login(data)
+
+
+@router.post("/google", response_model=TokenResponse)
+def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    return AuthService(db).google_login(data)
 
 
 @router.get("/me", response_model=UserOut)
