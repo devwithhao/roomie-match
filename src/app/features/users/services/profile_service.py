@@ -7,6 +7,7 @@ from app.features.users.models.account import Account
 from app.features.users.models.profile import Profile
 from app.features.users.repositories.profile_repository import ProfileRepository
 from app.features.users.repositories.role_repository import RoleRepository
+from app.features.users.role_utils import canonical_account_type
 from app.features.users.schemas.profile import (
     AccountProfileOut,
     MeProfileResponse,
@@ -70,7 +71,7 @@ class ProfileService:
         profile: Profile,
     ) -> MeProfileResponse:
         role = self._roles.get_by_id(account.role_id)
-        account_type = role.name if role else "tenant"
+        account_type = canonical_account_type(role.name, role.description) if role else "tenant"
 
         return MeProfileResponse(
             account=AccountProfileOut(
