@@ -170,7 +170,10 @@ class AuthService:
             request_adapter = requests.Request(session=session)
             
             idinfo = id_token.verify_oauth2_token(
-                data.id_token, request_adapter, settings.google_client_id
+                data.id_token, 
+                request_adapter, 
+                settings.google_client_id,
+                clock_skew_in_seconds=60
             )
         except Exception as e:
             if settings.app_debug:
