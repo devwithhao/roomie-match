@@ -7,7 +7,8 @@ class CreateMatchingProfileRequest(BaseModel):
     image: str | None = Field(default=None, description="Avatar URL or Image string")
     introduce: str | None = Field(default=None, description="Introduction text")
     habit: list[str] | None = Field(default=None, description="List of habits")
-    location: str | None = Field(default=None, description="Target location/city")
+    target_city: str | None = Field(default=None, description="Target city")
+    target_district: str | None = Field(default=None, description="Target district")
     budget: str | None = Field(default=None, description="Budget string in format minbudget-maxbudget")
 
 
@@ -23,5 +24,6 @@ class MatchingProfileResponse(BaseModel):
     image: str | None = None
     introduce: str | None = None
     habit: list[str] | None = None
-    location: str | None = None
+    target_city: str | None = None
+    target_district: str | None = None
     budget: str | None = None
