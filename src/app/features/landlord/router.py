@@ -39,7 +39,7 @@ async def _parse_room_form(request: Request) -> tuple[LandlordRoomPayload, list[
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
 
-    publish_raw = form.get("publish", "true")
+    publish_raw = form.get("publish", "false")
     publish = str(publish_raw).lower() not in {"false", "0", "no"}
     images = [value for key, value in form.multi_items() if key == "images" and hasattr(value, "file")]
     return payload, images, publish

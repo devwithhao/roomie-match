@@ -113,6 +113,26 @@ def test_landlord_create_room_publishes_active_post(client, db_session: Session,
     assert detail.json()["images"][0]["image_url"] == "https://cdn.example.com/room.jpg"
 
 
+def test_landlord_create_room_does_not_publish_by_default(client, db_session: Session):
+    token, landlord_id = _register(
+        client,
+        email="owner-room-only@example.com",
+        display_name="Room Only Owner",
+        account_type="landlord",
+    )
+
+    response = client.post(
+        "/api/v1/landlord/rooms",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"payload": __import__("json").dumps({"title": "Phong chua dang bai"})},
+    )
+
+    assert response.status_code == 201
+    room_id = response.json()["id"]
+    assert db_session.get(Room, room_id) is not None
+    assert db_session.query(Post).filter_by(room_id=room_id, account_id=landlord_id).count() == 0
+
+
 def test_landlord_cannot_access_other_landlord_room(client, db_session: Session):
     token_a, owner_a = _register(
         client,

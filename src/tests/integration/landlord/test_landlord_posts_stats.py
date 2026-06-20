@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
+import pytest
 from sqlalchemy.orm import Session
 
 from app.features.packages.models.entitlement import Entitlement
+from app.features.packages.models.package import Package
+from app.features.packages.models.purchase import Purchase
 from app.features.packages.models.usage_event import PackageUsageEvent
 from app.features.rooms.models.favorite import Favorite
 from app.features.rooms.models.post import Post
@@ -62,7 +67,14 @@ def test_landlord_stats_uses_owned_rooms_posts_and_favorites(client, db_session:
     room_b = _room(db_session, owner_id, code="TRO-STATS-B", title="Stats B", status="rented")
     other_room = _room(db_session, other_owner_id, code="TRO-STATS-OTHER", title="Other", status="available")
     post_a = Post(room_id=room_a.id, account_id=owner_id, status="active", is_vip=False)
-    post_b = Post(room_id=room_b.id, account_id=owner_id, status="active", is_vip=True)
+    post_b = Post(
+        room_id=room_b.id,
+        account_id=owner_id,
+        status="active",
+        is_vip=True,
+        boosted_at=datetime.utcnow(),
+        boost_expires_at=datetime.utcnow() + timedelta(days=3),
+    )
     other_post = Post(room_id=other_room.id, account_id=other_owner_id, status="active", is_vip=False)
     db_session.add_all([post_a, post_b, other_post])
     db_session.flush()
@@ -106,7 +118,14 @@ def test_landlord_posts_search_filter_and_favorite_metrics(client, db_session: S
     room_c = _room(db_session, owner_id, code="TRO-POST-C", title="Pending Room")
     other_room = _room(db_session, other_owner_id, code="TRO-POST-OTHER", title="Other Room")
     post_a = Post(room_id=room_a.id, account_id=owner_id, status="active", is_vip=False)
-    post_b = Post(room_id=room_b.id, account_id=owner_id, status="active", is_vip=True)
+    post_b = Post(
+        room_id=room_b.id,
+        account_id=owner_id,
+        status="active",
+        is_vip=True,
+        boosted_at=datetime.utcnow(),
+        boost_expires_at=datetime.utcnow() + timedelta(days=3),
+    )
     post_c = Post(room_id=room_c.id, account_id=owner_id, status="pending", is_vip=False)
     other_post = Post(room_id=other_room.id, account_id=other_owner_id, status="active", is_vip=False)
     db_session.add_all([post_a, post_b, post_c, other_post])
@@ -204,7 +223,10 @@ def test_landlord_create_post_uses_public_content_without_changing_room(client, 
     assert detail["room"]["description"] == "Internal room description"
 
 
-def test_landlord_boost_post_consumes_boost_entitlement(client, db_session: Session):
+@pytest.mark.parametrize(("duration_days", "slug"), [(3, "landlord-pro"), (7, "landlord-vip")])
+def test_landlord_boost_post_consumes_boost_entitlement(
+    client, db_session: Session, duration_days: int, slug: str
+):
     token, owner_id = _register(
         client,
         email="boost-owner@example.com",
@@ -215,7 +237,33 @@ def test_landlord_boost_post_consumes_boost_entitlement(client, db_session: Sess
     room_b = _room(db_session, owner_id, code="TRO-BOOST-B", title="Boost B")
     post_a = Post(room_id=room_a.id, account_id=owner_id, status="active", is_vip=False)
     post_b = Post(room_id=room_b.id, account_id=owner_id, status="active", is_vip=False)
-    entitlement = Entitlement(account_id=owner_id, feature_key="boost_limit", quantity=1)
+    package = Package(
+        slug=f"{slug}-boost-test",
+        name=slug,
+        price_cents=100000,
+        currency="vnd",
+        target_role="landlord",
+        period="30_days",
+        features={"boost_limit": 1, "boost_duration_days": duration_days},
+    )
+    db_session.add(package)
+    db_session.flush()
+    purchase = Purchase(
+        account_id=owner_id,
+        package_id=package.id,
+        provider="test",
+        status="paid",
+        amount_cents=package.price_cents,
+        currency="vnd",
+    )
+    db_session.add(purchase)
+    db_session.flush()
+    entitlement = Entitlement(
+        account_id=owner_id,
+        feature_key="boost_limit",
+        quantity=2,
+        source_purchase_id=purchase.id,
+    )
     db_session.add_all([post_a, post_b, entitlement])
     db_session.commit()
 
@@ -226,11 +274,33 @@ def test_landlord_boost_post_consumes_boost_entitlement(client, db_session: Sess
     )
     assert boosted.status_code == 200
     assert boosted.json()["status"] == "boosted"
+    assert boosted.json()["boost_days_left"] == duration_days
     db_session.refresh(entitlement)
-    assert entitlement.quantity == 0
+    assert entitlement.quantity == 1
     event = db_session.query(PackageUsageEvent).filter_by(account_id=owner_id, feature_key="boost_limit").one()
     assert event.amount == 1
     assert event.entity_id == post_a.id
+
+    boosted_again = client.patch(
+        f"/api/v1/landlord/posts/{post_a.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"status": "boosted"},
+    )
+    assert boosted_again.status_code == 200
+    assert db_session.query(PackageUsageEvent).filter_by(account_id=owner_id, feature_key="boost_limit").count() == 1
+
+    post_a.boost_expires_at = datetime.utcnow() - timedelta(seconds=1)
+    db_session.commit()
+    reboosted_after_expiry = client.patch(
+        f"/api/v1/landlord/posts/{post_a.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"status": "boosted"},
+    )
+    assert reboosted_after_expiry.status_code == 200
+    assert reboosted_after_expiry.json()["boost_days_left"] == duration_days
+    db_session.refresh(entitlement)
+    assert entitlement.quantity == 0
+    assert db_session.query(PackageUsageEvent).filter_by(account_id=owner_id, feature_key="boost_limit").count() == 2
 
     rejected = client.patch(
         f"/api/v1/landlord/posts/{post_b.id}",

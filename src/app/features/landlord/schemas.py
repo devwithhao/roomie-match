@@ -104,6 +104,9 @@ class LandlordPostOut(BaseModel):
     created_at: datetime
     status: str
     is_vip: bool
+    boosted_at: datetime | None = None
+    boost_expires_at: datetime | None = None
+    boost_days_left: int = 0
     views: int = 0
     likes: int = 0
     comments: int = 0

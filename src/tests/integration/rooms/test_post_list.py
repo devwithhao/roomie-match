@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -8,16 +10,17 @@ from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
 from app.features.rooms.models.room_amenity import RoomAmenity
 from app.features.rooms.models.room_image import RoomImage
+from app.features.rooms.services.post_service import PostService
 from app.features.users.models.account import Account
 from app.features.users.models.profile import Profile
 from app.features.users.models.role import Role
 
 
-def _make_landlord(db: Session) -> Account:
+def _make_landlord(db: Session, suffix: str = "a") -> Account:
     role = db.query(Role).filter_by(name="landlord").first()
     acc = Account(
-        email="landlord@test.com",
-        username="LandlordA",
+        email=f"landlord-{suffix}@test.com",
+        username=f"Landlord{suffix.upper()}",
         password_hash="hashed",
         role_id=role.id,
     )
@@ -166,6 +169,63 @@ class TestListPosts:
         r = client.get("/api/v1/posts")
         item = r.json()["items"][0]
         assert item["thumbnail"] == "https://img.example.com/1.jpg"
+
+    def test_featured_posts_are_first_and_expired_posts_are_regular(self, client, db_session: Session):
+        now = datetime.utcnow()
+        landlord = _make_landlord(db_session)
+        regular_room = _make_room(db_session, landlord.id, title="Regular")
+        expired_room = _make_room(db_session, landlord.id, title="Expired")
+        featured_room = _make_room(db_session, landlord.id, title="Featured")
+        _make_post(db_session, regular_room.id, landlord.id)
+        _make_post(
+            db_session,
+            expired_room.id,
+            landlord.id,
+            is_vip=True,
+            boosted_at=now - timedelta(days=4),
+            boost_expires_at=now - timedelta(days=1),
+        )
+        featured = _make_post(
+            db_session,
+            featured_room.id,
+            landlord.id,
+            is_vip=True,
+            boosted_at=now,
+            boost_expires_at=now + timedelta(days=3),
+        )
+        db_session.commit()
+
+        body = client.get("/api/v1/posts?page_size=3&sort_by=price_asc").json()
+        assert body["items"][0]["post_id"] == featured.id
+        assert body["items"][0]["is_vip"] is True
+        expired_item = next(item for item in body["items"] if item["title"] == "Expired")
+        assert expired_item["is_vip"] is False
+        assert expired_item["boost_days_left"] == 0
+
+    def test_featured_rotation_is_hourly_and_fair_by_landlord(self, db_session: Session):
+        now = datetime(2026, 6, 20, 10, 0, 0)
+        owner_a = _make_landlord(db_session, "rotation-a")
+        owner_b = _make_landlord(db_session, "rotation-b")
+        rows = []
+        for owner, suffix in ((owner_a, "a1"), (owner_a, "a2"), (owner_b, "b1")):
+            room = _make_room(db_session, owner.id, title=suffix)
+            post = _make_post(
+                db_session,
+                room.id,
+                owner.id,
+                is_vip=True,
+                boosted_at=now,
+                boost_expires_at=now + timedelta(days=3),
+            )
+            rows.append((post, room, None))
+        db_session.flush()
+
+        first_hour = PostService._rank_featured_posts(rows, now=now)
+        next_hour = PostService._rank_featured_posts(rows, now=now + timedelta(hours=1))
+
+        assert first_hour[0][0].account_id != first_hour[1][0].account_id
+        assert first_hour[0][0].account_id != next_hour[0][0].account_id
+        assert {row[0].id for row in first_hour} == {row[0].id for row in next_hour}
 
 
 class TestPostDetail:

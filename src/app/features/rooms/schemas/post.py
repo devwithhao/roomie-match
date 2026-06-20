@@ -21,6 +21,9 @@ class PostCardOut(BaseModel):
     ward: str | None = None
     created_at: datetime
     is_vip: bool
+    boosted_at: datetime | None = None
+    boost_expires_at: datetime | None = None
+    boost_days_left: int = 0
     status: str
     bedroom_count: int
 
@@ -86,6 +89,9 @@ class PostDetailOut(BaseModel):
     description: str | None = None
     created_at: datetime
     is_vip: bool
+    boosted_at: datetime | None = None
+    boost_expires_at: datetime | None = None
+    boost_days_left: int = 0
     status: str
     room: RoomDetailOut
     images: list[ImageOut]

@@ -200,7 +200,7 @@ class LandlordService:
         payload: LandlordRoomPayload,
         image_files: Iterable[object] = (),
         *,
-        publish: bool = True,
+        publish: bool = False,
     ) -> LandlordRoomOut:
         image_files = list(image_files)
         if publish:
@@ -316,7 +316,7 @@ class LandlordService:
 
         filters = []
         if boosted_only:
-            filters.append(Post.is_vip.is_(True))
+            filters.extend(self._status_predicates("boosted"))
         elif status_filter:
             filters.extend(self._status_predicates(status_filter))
         if search:
@@ -363,10 +363,11 @@ class LandlordService:
             if payload.description is not None:
                 existing.description = payload.description
                 changed = True
-            if payload.is_vip and not existing.is_vip:
-                self._consume_boost_credit(account, existing.id)
-            if payload.is_vip != existing.is_vip:
-                existing.is_vip = payload.is_vip
+            if payload.is_vip and not self._is_boost_active(existing):
+                self._start_boost(account, existing)
+                changed = True
+            elif not payload.is_vip and existing.is_vip:
+                self._clear_boost(existing)
                 changed = True
             if changed:
                 self._db.commit()
@@ -387,7 +388,7 @@ class LandlordService:
             self._db.flush()
             self._consume_package_credit(account, "posts_limit", 1, entity_type="post", entity_id=post.id)
             if payload.is_vip:
-                self._consume_boost_credit(account, post.id)
+                self._start_boost(account, post)
             self._db.commit()
             self._db.refresh(post)
             return self._post_out(post, room)
@@ -400,23 +401,23 @@ class LandlordService:
         try:
             if payload.status:
                 if payload.status == "boosted":
-                    if not post.is_vip:
-                        self._consume_boost_credit(account, post.id)
+                    if not self._is_boost_active(post):
+                        self._start_boost(account, post)
                     post.status = "active"
-                    post.is_vip = True
                 elif payload.status == "approved":
                     post.status = "active"
-                    post.is_vip = False
+                    self._clear_boost(post)
                 else:
                     post.status = payload.status
                     if payload.status != "active":
-                        post.is_vip = False
+                        self._clear_boost(post)
             if payload.is_vip is not None:
-                if payload.is_vip and not post.is_vip:
-                    self._consume_boost_credit(account, post.id)
-                post.is_vip = payload.is_vip
                 if payload.is_vip:
+                    if not self._is_boost_active(post):
+                        self._start_boost(account, post)
                     post.status = "active"
+                else:
+                    self._clear_boost(post)
             if payload.title is not None:
                 post.title = payload.title
             if payload.description is not None:
@@ -462,21 +463,57 @@ class LandlordService:
         entity_type: str | None = None,
         entity_id: int | None = None,
         metadata: dict | None = None,
-    ) -> None:
+    ):
         if amount <= 0:
-            return
-        if not PackageService(self._db).consume_credit_with_event(
+            return None
+        event = PackageService(self._db).consume_credit_with_event(
             account.id,
             feature_key,
             amount,
             entity_type=entity_type,
             entity_id=entity_id,
             metadata=metadata,
-        ):
+        )
+        if event is None:
             raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=self._quota_message(feature_key))
+        return event
 
-    def _consume_boost_credit(self, account: Account, post_id: int) -> None:
-        self._consume_package_credit(account, "boost_limit", 1, entity_type="post", entity_id=post_id)
+    def _consume_boost_credit(self, account: Account, post_id: int) -> int:
+        packages = PackageService(self._db)
+        event = self._consume_package_credit(account, "boost_limit", 1, entity_type="post", entity_id=post_id)
+        return packages.boost_duration_days_for_event(event, default=3)
+
+    def _start_boost(self, account: Account, post: Post) -> None:
+        duration_days = self._consume_boost_credit(account, post.id)
+        boosted_at = datetime.utcnow()
+        post.is_vip = True
+        post.boosted_at = boosted_at
+        post.boost_expires_at = boosted_at + timedelta(days=duration_days)
+
+    @staticmethod
+    def _clear_boost(post: Post) -> None:
+        post.is_vip = False
+        post.boosted_at = None
+        post.boost_expires_at = None
+
+    @staticmethod
+    def _is_boost_active(post: Post, now: datetime | None = None) -> bool:
+        now = now or datetime.utcnow()
+        expires_at = post.boost_expires_at
+        if not post.is_vip or expires_at is None:
+            return False
+        if expires_at.tzinfo is not None and now.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=None)
+        return expires_at > now
+
+    def _boost_days_left(self, post: Post) -> int:
+        if not self._is_boost_active(post):
+            return 0
+        expires_at = post.boost_expires_at
+        if expires_at.tzinfo is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+        seconds_left = (expires_at - datetime.utcnow()).total_seconds()
+        return max(0, math.ceil(seconds_left / 86400))
 
     def _quota_message(self, feature_key: str) -> str:
         messages = {
@@ -590,6 +627,7 @@ class LandlordService:
 
     def _post_out(self, post: Post, room: Room, favorite_count: int | None = None) -> LandlordPostOut:
         status_value = self._landlord_status(post)
+        boost_days_left = self._boost_days_left(post)
         thumbnail = self._db.scalars(
             select(RoomImage.image_url).where(RoomImage.room_id == room.id).order_by(RoomImage.id.asc())
         ).first()
@@ -609,12 +647,15 @@ class LandlordService:
             publishedAt=post.created_at.date().isoformat(),
             created_at=post.created_at,
             status=status_value,
-            is_vip=post.is_vip,
+            is_vip=status_value == "boosted",
+            boosted_at=post.boosted_at,
+            boost_expires_at=post.boost_expires_at,
+            boost_days_left=boost_days_left,
             views=0,
             likes=favorite_count,
             comments=0,
-            boostDaysLeft=7 if status_value == "boosted" else 0,
-            boostTotalDays=7 if status_value == "boosted" else 0,
+            boostDaysLeft=boost_days_left,
+            boostTotalDays=(post.boost_expires_at - post.boosted_at).days if status_value == "boosted" else 0,
             badges=["Trang chủ"] if status_value == "boosted" else [],
             thumbnail=thumbnail,
         )
@@ -669,15 +710,19 @@ class LandlordService:
         return counts
 
     def _status_predicates(self, status_filter: str):
+        now = datetime.utcnow()
         if status_filter == "approved":
-            return [Post.status == "active", Post.is_vip.is_(False)]
+            return [
+                Post.status == "active",
+                or_(Post.is_vip.is_(False), Post.boost_expires_at.is_(None), Post.boost_expires_at <= now),
+            ]
         if status_filter == "boosted":
-            return [Post.status == "active", Post.is_vip.is_(True)]
+            return [Post.status == "active", Post.is_vip.is_(True), Post.boost_expires_at > now]
         return [Post.status == status_filter]
 
     def _landlord_status(self, post: Post) -> str:
         if post.status == "active":
-            return "boosted" if post.is_vip else "approved"
+            return "boosted" if self._is_boost_active(post) else "approved"
         return post.status
 
     def _make_room_code(self, room_id: int) -> str:

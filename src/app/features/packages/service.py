@@ -196,22 +196,22 @@ class PackageService:
         entity_type: str | None = None,
         entity_id: int | None = None,
         metadata: dict | None = None,
-    ) -> bool:
+    ) -> PackageUsageEvent | None:
         if amount <= 0:
-            return True
+            return None
 
         entitlement = self.entitlement_repo.get_consumable_by_account_and_feature(
             account_id, feature_key
         )
         if not entitlement:
-            return False
+            return None
         if entitlement.quantity is not None and entitlement.quantity < amount:
-            return False
+            return None
 
         if entitlement.quantity is not None:
             self.entitlement_repo.update_quantity(entitlement.id, entitlement.quantity - amount)
 
-        self.usage_event_repo.create(
+        return self.usage_event_repo.create(
             PackageUsageEvent(
                 account_id=account_id,
                 feature_key=feature_key,
@@ -222,4 +222,14 @@ class PackageService:
                 metadata_json=metadata,
             )
         )
-        return True
+
+    def boost_duration_days_for_event(self, event: PackageUsageEvent | None, default: int = 3) -> int:
+        if event is None or event.source_purchase_id is None:
+            return default
+        purchase = self.purchase_repo.get_by_id(event.source_purchase_id)
+        if purchase is None:
+            return default
+        package = self.package_repo.get_by_id(purchase.package_id)
+        features = package.features if package is not None and isinstance(package.features, dict) else {}
+        duration = features.get("boost_duration_days")
+        return duration if isinstance(duration, int) and duration > 0 else default
