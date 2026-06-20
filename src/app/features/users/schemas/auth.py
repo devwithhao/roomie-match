@@ -30,6 +30,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+    account_type: AccountType | None = None
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
