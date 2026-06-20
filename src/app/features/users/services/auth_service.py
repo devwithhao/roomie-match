@@ -14,6 +14,7 @@ from app.features.users.models.account import Account
 from app.features.users.models.profile import Profile
 from app.features.users.repositories.account_repository import AccountRepository
 from app.features.users.repositories.role_repository import RoleRepository
+from app.features.users.role_utils import canonical_account_type
 from app.features.users.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest
 
 
@@ -60,7 +61,7 @@ class AuthService:
         self._roles = RoleRepository(db)
 
     def register(self, data: RegisterRequest) -> TokenResponse:
-        role = self._roles.get_by_name(data.account_type.value)
+        role = self._roles.get_by_account_type(data.account_type.value)
         if role is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -123,7 +124,7 @@ class AuthService:
                 detail=detail,
             ) from exc
         self._db.refresh(account)
-        return self._token_response(account, role.name)
+        return self._token_response(account, canonical_account_type(role.name, role.description))
 
     def login(self, data: LoginRequest) -> TokenResponse:
         account = self._accounts.get_by_email(_normalize_email(str(data.email)))
@@ -142,7 +143,7 @@ class AuthService:
             )
 
         role = self._roles.get_by_id(account.role_id)
-        role_name = role.name if role else "tenant"
+        role_name = canonical_account_type(role.name, role.description) if role else "tenant"
 
         account.last_login_at = datetime.now(timezone.utc)
         self._db.commit()

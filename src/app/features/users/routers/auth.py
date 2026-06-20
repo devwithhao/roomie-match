@@ -8,6 +8,7 @@ from app.database.session import get_db
 from app.features.users.models.account import Account
 from app.features.users.models.role import Role
 from app.features.users.models.profile import Profile
+from app.features.users.role_utils import canonical_account_type
 from app.features.users.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest
 from app.features.users.services.auth_service import AuthService
 
@@ -44,7 +45,7 @@ def read_me(
         id=account.id,
         email=account.email or "",
         display_name=account.username or "",
-        account_type=role.name if role else "tenant",
+        account_type=canonical_account_type(role.name, role.description) if role else "tenant",
         email_verified=bool(account.email_verified),
         full_name=profile.full_name if profile is not None else None,
         phone=profile.phone if profile is not None else None,
