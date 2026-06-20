@@ -76,7 +76,8 @@ class MatchingProfileService:
                 account_id=account.id,
                 introduce=payload.introduce,
                 habit=payload.habit,
-                target_city=payload.location,
+                target_city=payload.target_city,
+                target_district=payload.target_district,
                 budget_min=budget_min,
                 budget_max=budget_max,
             )
@@ -85,8 +86,10 @@ class MatchingProfileService:
                 pref.introduce = payload.introduce
             if payload.habit is not None:
                 pref.habit = payload.habit
-            if payload.location is not None:
-                pref.target_city = payload.location
+            if payload.target_city is not None:
+                pref.target_city = payload.target_city
+            if payload.target_district is not None:
+                pref.target_district = payload.target_district
             if payload.budget is not None:
                 pref.budget_min = budget_min
                 pref.budget_max = budget_max
@@ -108,7 +111,8 @@ class MatchingProfileService:
             image=image_url,
             introduce=pref.introduce,
             habit=pref.habit,
-            location=pref.target_city,
+            target_city=pref.target_city,
+            target_district=pref.target_district,
             budget=format_budget(pref.budget_min, pref.budget_max),
         )
 
@@ -134,6 +138,7 @@ class MatchingProfileService:
             image=profile.avatar_url if profile else None,
             introduce=pref.introduce,
             habit=pref.habit,
-            location=pref.target_city,
+            target_city=pref.target_city,
+            target_district=pref.target_district,
             budget=format_budget(pref.budget_min, pref.budget_max),
         )
