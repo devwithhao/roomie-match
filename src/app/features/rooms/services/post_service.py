@@ -37,7 +37,9 @@ class PostService:
                 PostCardOut(
                     post_id=post.id,
                     room_id=room.id,
-                    title=room.title,
+                    room_code=room.room_code,
+                    title=post.title or room.title,
+                    description=post.description if post.description is not None else room.description,
                     thumbnail=thumbnail,
                     price=room.price,
                     room_type=room.room_type,
@@ -89,11 +91,14 @@ class PostService:
 
         return PostDetailOut(
             post_id=post.id,
+            title=post.title or room.title,
+            description=post.description if post.description is not None else room.description,
             created_at=post.created_at,
             is_vip=post.is_vip,
             status=post.status,
             room=RoomDetailOut(
                 room_id=room.id,
+                room_code=room.room_code,
                 title=room.title,
                 description=room.description,
                 price=room.price,

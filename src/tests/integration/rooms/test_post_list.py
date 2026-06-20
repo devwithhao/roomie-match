@@ -135,6 +135,24 @@ class TestListPosts:
         assert "bedroom_count" in item
         assert "thumbnail" in item
 
+    def test_card_prefers_post_title_and_description(self, client, db_session: Session):
+        landlord = _make_landlord(db_session)
+        room = _make_room(db_session, landlord.id, title="Room title", description="Room description")
+        _make_post(
+            db_session,
+            room.id,
+            landlord.id,
+            title="Post title",
+            description="Post description",
+        )
+        db_session.commit()
+
+        r = client.get("/api/v1/posts")
+        assert r.status_code == 200
+        item = r.json()["items"][0]
+        assert item["title"] == "Post title"
+        assert item["description"] == "Post description"
+
     def test_thumbnail_from_first_image(self, client, db_session: Session):
         landlord = _make_landlord(db_session)
         room = _make_room(db_session, landlord.id)
@@ -190,6 +208,26 @@ class TestPostDetail:
 
         assert isinstance(body["images"], list)
         assert isinstance(body["amenities"], list)
+
+    def test_detail_has_post_description_and_keeps_room_description(self, client, db_session: Session):
+        landlord = _make_landlord(db_session)
+        room = _make_room(db_session, landlord.id, title="Room title", description="Room description")
+        post = _make_post(
+            db_session,
+            room.id,
+            landlord.id,
+            title="Public post title",
+            description="Public post description",
+        )
+        db_session.commit()
+
+        r = client.get(f"/api/v1/posts/{post.id}")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["title"] == "Public post title"
+        assert body["description"] == "Public post description"
+        assert body["room"]["title"] == "Room title"
+        assert body["room"]["description"] == "Room description"
 
     def test_detail_with_images_and_amenities(self, client, db_session: Session):
         landlord = _make_landlord(db_session)

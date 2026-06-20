@@ -10,7 +10,9 @@ class PostCardOut(BaseModel):
 
     post_id: int
     room_id: int
+    room_code: str | None = None
     title: str | None = None
+    description: str | None = None
     thumbnail: str | None = None
     price: int | None = None
     room_type: str | None = None
@@ -56,6 +58,7 @@ class LandlordOut(BaseModel):
 
 class RoomDetailOut(BaseModel):
     room_id: int
+    room_code: str | None = None
     title: str | None = None
     description: str | None = None
     price: int | None = None
@@ -79,6 +82,8 @@ class RoomDetailOut(BaseModel):
 
 class PostDetailOut(BaseModel):
     post_id: int
+    title: str | None = None
+    description: str | None = None
     created_at: datetime
     is_vip: bool
     status: str

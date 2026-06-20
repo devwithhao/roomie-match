@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.features.packages.models import Package
+from app.features.packages.models import Entitlement
 from app.features.users.models import Account, Role
 
 
@@ -67,3 +68,108 @@ def test_get_purchases_unauthorized(client):
 def test_get_entitlements_unauthorized(client):
     response = client.get("/api/v1/packages/me/entitlements")
     assert response.status_code == 401
+
+
+def test_landlord_purchase_package_is_paid_and_grants_entitlements(client, db_session: Session):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "landlord-package@example.com",
+            "password": "password123",
+            "display_name": "Landlord Package",
+            "account_type": "landlord",
+        },
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    account_id = response.json()["user"]["id"]
+
+    pkg = Package(
+        slug="landlord-test",
+        name="Landlord Test",
+        description="Landlord package",
+        price_cents=49000,
+        currency="vnd",
+        target_role="landlord",
+        period="30_days",
+        features={"posts_limit": 3, "photo_limit": 15, "boost_limit": 1},
+        active=True,
+    )
+    db_session.add(pkg)
+    db_session.commit()
+
+    purchase = client.post(
+        "/api/v1/packages/purchase",
+        json={"package_id": pkg.id},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert purchase.status_code == 201
+    body = purchase.json()
+    assert body["status"] == "paid"
+    assert body["package_id"] == pkg.id
+
+    entitlements = db_session.query(Entitlement).filter_by(account_id=account_id).all()
+    quantities = {item.feature_key: item.quantity for item in entitlements}
+    assert quantities["posts_limit"] == 3
+    assert quantities["photo_limit"] == 15
+    assert quantities["boost_limit"] == 1
+    assert "active_subscription" in quantities
+
+
+@pytest.mark.parametrize(
+    ("slug", "price_cents", "features"),
+    [
+        ("landlord-basic", 49000, {"posts_limit": 3, "photo_limit": 15, "boost_limit": 0}),
+        ("landlord-pro", 199000, {"posts_limit": 30, "photo_limit": 60, "boost_limit": 5}),
+        ("landlord-vip", 499000, {"posts_limit": 100, "photo_limit": 150, "boost_limit": 20}),
+    ],
+)
+def test_landlord_standard_packages_grant_expected_entitlements(
+    client,
+    db_session: Session,
+    slug: str,
+    price_cents: int,
+    features: dict[str, int],
+):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"{slug}@example.com",
+            "password": "password123",
+            "display_name": slug,
+            "account_type": "landlord",
+        },
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    account_id = response.json()["user"]["id"]
+
+    pkg = Package(
+        slug=slug,
+        name=slug.replace("-", " ").title(),
+        description="Standard landlord package",
+        price_cents=price_cents,
+        currency="vnd",
+        target_role="landlord",
+        period="30_days",
+        features=features,
+        active=True,
+    )
+    db_session.add(pkg)
+    db_session.commit()
+
+    purchase = client.post(
+        "/api/v1/packages/purchase",
+        json={"package_id": pkg.id},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert purchase.status_code == 201
+    assert purchase.json()["amount_cents"] == price_cents
+    quantities = {
+        item.feature_key: item.quantity
+        for item in db_session.query(Entitlement).filter_by(account_id=account_id).all()
+    }
+    assert quantities["posts_limit"] == features["posts_limit"]
+    assert quantities["photo_limit"] == features["photo_limit"]
+    assert quantities["boost_limit"] == features["boost_limit"]

@@ -9,6 +9,7 @@ from app.features.matching.models.reject import UserReject
 from app.features.packages.models.entitlement import Entitlement
 from app.features.packages.models.package import Package
 from app.features.packages.models.purchase import Purchase
+from app.features.packages.models.usage_event import PackageUsageEvent
 from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.amenity import Amenity
 from app.features.rooms.models.favorite import Favorite
@@ -29,6 +30,7 @@ __all__ = [
     "Entitlement",
     "Favorite",
     "Package",
+    "PackageUsageEvent",
     "Post",
     "Profile",
     "Purchase",
