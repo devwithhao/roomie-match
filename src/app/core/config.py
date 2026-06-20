@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     cloudinary_folder: str = "roomie-match/rooms"
     # Neu true: loi 500 tu register se kem thong bao loi DB (chi localhost/debug)
     app_debug: bool = Field(default=False, validation_alias="APP_DEBUG")
+    google_client_id: str = ""
+    
+    # VNPAY Settings
+    vnpay_tmn_code: str = ""
+    vnpay_hash_secret: str = ""
+    vnpay_url: str = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+    vnpay_return_url: str = "http://localhost:5173/payment/vnpay-return"
 
 
 settings = Settings()
