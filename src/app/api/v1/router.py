@@ -12,6 +12,7 @@ from app.features.rooms.routers.reviews import router as reviews_router
 from app.features.users.routers.auth import router as auth_router
 from app.features.users.routers.users import router as users_router
 from app.features.admin.routers.users import router as admin_users_router
+from app.shared.routers.upload import router as upload_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -24,3 +25,4 @@ api_router.include_router(packages_router, prefix="/packages", tags=["packages"]
 api_router.include_router(packages_webhook_router, prefix="/packages", tags=["packages"])
 api_router.include_router(vnpay_router, prefix="/payments/vnpay", tags=["payments"])
 api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
+api_router.include_router(upload_router, prefix="/upload", tags=["upload"])

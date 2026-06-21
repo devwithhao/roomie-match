@@ -103,6 +103,14 @@ class EntitlementRepository:
         self.db.flush()
         return entitlement
 
+    def delete_by_account_id(self, account_id: int):
+        """Delete all existing entitlements for an account"""
+        from sqlalchemy import delete
+        self.db.execute(
+            delete(Entitlement).where(Entitlement.account_id == account_id)
+        )
+        self.db.flush()
+
     def get_by_id(self, entitlement_id: int) -> Entitlement | None:
         """Get entitlement by ID"""
         return self.db.execute(

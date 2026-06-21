@@ -59,6 +59,8 @@ class PackageService:
         if not package:
             raise ValueError(f"Package {purchase.package_id} not found")
 
+        self.entitlement_repo.delete_by_account_id(purchase.account_id)
+
         entitlements = []
 
         if package.credits_match:
