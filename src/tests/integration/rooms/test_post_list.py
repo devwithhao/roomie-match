@@ -264,7 +264,7 @@ class TestPostDetail:
         assert body["landlord"]["account_id"] == landlord.id
         assert body["landlord"]["display_name"] == "LandlordA"
         assert body["landlord"]["avatar_url"] == "https://img.example.com/avatar.jpg"
-        assert body["landlord"]["contact_phone"] == "0909000111"
+        assert body["landlord"]["contact_phone"] is None
 
         assert isinstance(body["images"], list)
         assert isinstance(body["amenities"], list)

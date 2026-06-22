@@ -216,11 +216,8 @@ def test_landlord_create_post_uses_public_content_without_changing_room(client, 
     assert room.description == "Internal room description"
 
     public_detail = client.get(f"/api/v1/posts/{body['post_id']}")
-    assert public_detail.status_code == 200
-    detail = public_detail.json()
-    assert detail["title"] == "Public post title"
-    assert detail["description"] == "Public post description"
-    assert detail["room"]["description"] == "Internal room description"
+    assert public_detail.status_code == 404
+    assert db_session.get(Post, body["post_id"]).status == "pending"
 
 
 @pytest.mark.parametrize(("duration_days", "slug"), [(3, "landlord-pro"), (7, "landlord-vip")])

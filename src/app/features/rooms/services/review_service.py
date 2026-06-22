@@ -15,6 +15,8 @@ from app.features.rooms.schemas.review import (
     ReviewUpdate,
 )
 from app.shared.pagination.paginator import PageParams, total_pages
+from app.features.rental_requests.models.rental_history import RentalHistory
+from sqlalchemy import select
 
 
 class ReviewService:
@@ -64,12 +66,27 @@ class ReviewService:
                 )
             )
 
+        all_reviews = self._db.scalars(
+            select(Review.rating).where(Review.room_id == room_id, Review.rating.isnot(None))
+        ).all()
+        
+        rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        total_rating_sum = 0
+        for r in all_reviews:
+            if 1 <= r <= 5:
+                rating_counts[r] += 1
+                total_rating_sum += r
+                
+        average_rating = round(total_rating_sum / len(all_reviews), 1) if all_reviews else 0.0
+
         return PaginatedReviewListOut(
             items=items,
             total=total,
             page=page,
             page_size=page_size,
             total_pages=total_pages(total, page_size),
+            average_rating=average_rating,
+            rating_counts=rating_counts,
         )
 
     def add_review(
@@ -79,6 +96,16 @@ class ReviewService:
         data: ReviewCreate,
     ) -> ReviewOut:
         self._get_room_or_404(room_id)
+
+        eligible = self._db.scalar(
+            select(RentalHistory.id).where(
+                RentalHistory.account_id == account.id,
+                RentalHistory.room_id == room_id,
+                RentalHistory.status.in_(["active", "ended"]),
+            )
+        )
+        if eligible is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only confirmed tenants can review this room")
 
         existing = self._reviews.get_by_account_and_room(account.id, room_id)
         if existing:

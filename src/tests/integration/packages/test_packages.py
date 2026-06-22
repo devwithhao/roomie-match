@@ -105,15 +105,10 @@ def test_landlord_purchase_package_is_paid_and_grants_entitlements(client, db_se
     )
     assert purchase.status_code == 201
     body = purchase.json()
-    assert body["status"] == "paid"
+    assert body["status"] == "pending"
     assert body["package_id"] == pkg.id
 
-    entitlements = db_session.query(Entitlement).filter_by(account_id=account_id).all()
-    quantities = {item.feature_key: item.quantity for item in entitlements}
-    assert quantities["posts_limit"] == 3
-    assert quantities["photo_limit"] == 15
-    assert quantities["boost_limit"] == 1
-    assert "active_subscription" in quantities
+    assert db_session.query(Entitlement).filter_by(account_id=account_id).count() == 0
 
 
 @pytest.mark.parametrize(
@@ -166,10 +161,28 @@ def test_landlord_standard_packages_grant_expected_entitlements(
 
     assert purchase.status_code == 201
     assert purchase.json()["amount_cents"] == price_cents
-    quantities = {
-        item.feature_key: item.quantity
-        for item in db_session.query(Entitlement).filter_by(account_id=account_id).all()
-    }
-    assert quantities["posts_limit"] == features["posts_limit"]
-    assert quantities["photo_limit"] == features["photo_limit"]
-    assert quantities["boost_limit"] == features["boost_limit"]
+    assert purchase.json()["status"] == "pending"
+    assert db_session.query(Entitlement).filter_by(account_id=account_id).count() == 0
+
+
+def test_payment_confirmation_is_idempotent(client, db_session: Session):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "idempotent-payment@example.com", "password": "password123", "display_name": "Payment", "account_type": "landlord"},
+    )
+    token = response.json()["access_token"]
+    account_id = response.json()["user"]["id"]
+    package = Package(slug="idempotent", name="Idempotent", price_cents=1000, currency="vnd", target_role="landlord", period="30_days", features={"posts_limit": 2, "photo_limit": 3, "boost_limit": 1}, active=True)
+    db_session.add(package)
+    db_session.commit()
+    created = client.post("/api/v1/packages/purchase", json={"package_id": package.id}, headers={"Authorization": f"Bearer {token}"})
+    purchase_id = created.json()["id"]
+
+    from app.features.packages.service import PackageService
+    service = PackageService(db_session)
+    service.confirm_purchase(purchase_id, "txn-idempotent", {"verified": True})
+    db_session.commit()
+    first_count = db_session.query(Entitlement).filter_by(account_id=account_id, source_purchase_id=purchase_id).count()
+    service.confirm_purchase(purchase_id, "txn-idempotent", {"verified": True})
+    db_session.commit()
+    assert db_session.query(Entitlement).filter_by(account_id=account_id, source_purchase_id=purchase_id).count() == first_count

@@ -28,10 +28,10 @@ class PackageService:
         self,
         account_id: int,
         package_id: int,
-        provider: str = "stripe",
+        provider: str = "vnpay",
         account_role: str | None = None,
     ) -> Purchase:
-        """Create a purchase and mark it paid in dev until a real payment gateway exists."""
+        """Create a pending purchase. Entitlements are granted only after provider confirmation."""
         package = self.package_repo.get_by_id(package_id)
         if not package:
             raise ValueError(f"Package {package_id} not found")
@@ -44,11 +44,9 @@ class PackageService:
             provider=provider,
             amount_cents=package.price_cents,
             currency=package.currency,
-            status="paid",
+            status="pending",
         )
         created = self.purchase_repo.create(purchase)
-        created.provider_payment_id = f"dev-{created.id}"
-        self._grant_entitlements(created, package)
         return created
 
     def confirm_purchase(
@@ -58,6 +56,10 @@ class PackageService:
         purchase = self.purchase_repo.get_by_id(purchase_id)
         if not purchase:
             raise ValueError(f"Purchase {purchase_id} not found")
+        if purchase.status == "paid":
+            return purchase, self.entitlement_repo.get_by_source_purchase_id(purchase.id)
+        if purchase.status != "pending":
+            raise ValueError(f"Purchase {purchase_id} is not pending")
 
         # Update purchase status
         purchase.status = "paid"

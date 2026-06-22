@@ -36,6 +36,7 @@ class Post(Base):
     )
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    moderation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     boosted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     boost_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

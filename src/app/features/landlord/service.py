@@ -27,6 +27,9 @@ from app.features.rooms.models.room_amenity import RoomAmenity
 from app.features.rooms.models.room_image import RoomImage
 from app.features.packages.service import PackageService
 from app.features.users.models.account import Account
+from app.features.landlord.models import PostInteraction, RentalRequest
+from app.features.rental_requests.models.rental_history import RentalHistory
+from app.features.rooms.models.review import Review
 from app.shared.pagination.paginator import total_pages
 
 
@@ -52,6 +55,26 @@ class LandlordService:
         post_ids = [post.id for post in posts]
         favorite_counts = self._favorite_counts_by_post(post_ids)
         total_favorites = sum(favorite_counts.values())
+        total_views = self._interaction_count(post_ids, "view")
+        total_contacts = self._interaction_count(post_ids, "contact")
+        total_reviews = int(
+            self._db.scalar(
+                select(func.count())
+                .select_from(Review)
+                .join(Room, Review.room_id == Room.id)
+                .where(Room.account_id == account.id)
+            )
+            or 0
+        )
+        total_tenants = int(
+            self._db.scalar(
+                select(func.count())
+                .select_from(RentalHistory)
+                .join(Room, RentalHistory.room_id == Room.id)
+                .where(Room.account_id == account.id)
+            )
+            or 0
+        )
 
         room_status_counts = {"rented": 0, "available": 0, "negotiating": 0}
         for room in rooms:
@@ -81,7 +104,7 @@ class LandlordService:
                     "post": room.title,
                     "title": room.title,
                     "price": room.price or 0,
-                    "views": 0,
+                    "views": self._interaction_count([post.id], "view") if post is not None else 0,
                     "favorite_count": favorite_count,
                     "status": room.status,
                 }
@@ -93,7 +116,10 @@ class LandlordService:
             total_rooms=len(rooms),
             total_posts=len(posts),
             total_favorites=total_favorites,
-            total_contacts=0,
+            total_views=total_views,
+            total_reviews=total_reviews,
+            total_tenants=total_tenants,
+            total_contacts=total_contacts,
             summary=[
                 {
                     "id": "posts",
@@ -114,7 +140,7 @@ class LandlordService:
                 {
                     "id": "views",
                     "label": "Lượt xem",
-                    "value": 0,
+                    "value": total_views,
                     "change": "Chưa bật tracking",
                     "icon": "eye",
                     "tone": "muted",
@@ -122,7 +148,7 @@ class LandlordService:
                 {
                     "id": "contacts",
                     "label": "Lượt liên hệ",
-                    "value": 0,
+                    "value": total_contacts,
                     "change": f"{total_favorites} lượt lưu",
                     "icon": "message",
                     "tone": "orange",
@@ -229,7 +255,7 @@ class LandlordService:
                 post = Post(
                     room_id=room.id,
                     account_id=account.id,
-                    status="active",
+                    status="pending",
                     is_vip=False,
                     title=room.title,
                     description=room.description,
@@ -283,6 +309,15 @@ class LandlordService:
     def delete_room(self, account: Account, room_id: int) -> dict[str, bool]:
         try:
             room = self._get_owned_room(account, room_id)
+            has_history = self._db.scalar(select(RentalHistory.id).where(RentalHistory.room_id == room.id)) is not None
+            has_review = self._db.scalar(select(Review.id).where(Review.room_id == room.id)) is not None
+            if has_history or has_review:
+                room.status = "archived"
+                for post in self._db.scalars(select(Post).where(Post.room_id == room.id)).all():
+                    post.status = "closed"
+                    self._clear_boost(post)
+                self._db.commit()
+                return {"success": True}
             post_ids = list(
                 self._db.scalars(
                     select(Post.id).where(Post.room_id == room.id, Post.account_id == account.id)
@@ -299,6 +334,15 @@ class LandlordService:
         except Exception:
             self._db.rollback()
             raise
+
+    def delete_room_image(self, account: Account, room_id: int, image_id: int) -> dict[str, bool]:
+        self._get_owned_room(account, room_id)
+        image = self._db.scalar(select(RoomImage).where(RoomImage.id == image_id, RoomImage.room_id == room_id))
+        if image is None:
+            raise HTTPException(status_code=404, detail="Room image not found")
+        self._db.delete(image)
+        self._db.commit()
+        return {"success": True}
 
     def list_posts(
         self,
@@ -363,6 +407,11 @@ class LandlordService:
             if payload.description is not None:
                 existing.description = payload.description
                 changed = True
+            if existing.status == "rejected" and changed:
+                existing.status = "pending"
+                existing.moderation_reason = None
+            if payload.is_vip and existing.status != "active":
+                raise HTTPException(status_code=409, detail="Chỉ bài đã được duyệt mới có thể đẩy nổi bật")
             if payload.is_vip and not self._is_boost_active(existing):
                 self._start_boost(account, existing)
                 changed = True
@@ -379,8 +428,8 @@ class LandlordService:
             post = Post(
                 room_id=room.id,
                 account_id=account.id,
-                status="active",
-                is_vip=payload.is_vip,
+                status="pending",
+                is_vip=False,
                 title=payload.title or room.title,
                 description=payload.description if payload.description is not None else room.description,
             )
@@ -388,7 +437,7 @@ class LandlordService:
             self._db.flush()
             self._consume_package_credit(account, "posts_limit", 1, entity_type="post", entity_id=post.id)
             if payload.is_vip:
-                self._start_boost(account, post)
+                raise HTTPException(status_code=409, detail="Bài phải được admin duyệt trước khi đẩy nổi bật")
             self._db.commit()
             self._db.refresh(post)
             return self._post_out(post, room)
@@ -401,18 +450,21 @@ class LandlordService:
         try:
             if payload.status:
                 if payload.status == "boosted":
+                    if post.status != "active":
+                        raise HTTPException(status_code=409, detail="Chỉ bài đã được duyệt mới có thể đẩy nổi bật")
                     if not self._is_boost_active(post):
                         self._start_boost(account, post)
                     post.status = "active"
                 elif payload.status == "approved":
-                    post.status = "active"
+                    if post.status != "active":
+                        raise HTTPException(status_code=403, detail="Chủ trọ không thể tự duyệt bài")
                     self._clear_boost(post)
                 else:
-                    post.status = payload.status
-                    if payload.status != "active":
-                        self._clear_boost(post)
+                    raise HTTPException(status_code=422, detail="Trạng thái bài đăng không hợp lệ")
             if payload.is_vip is not None:
                 if payload.is_vip:
+                    if post.status != "active":
+                        raise HTTPException(status_code=409, detail="Chỉ bài đã được duyệt mới có thể đẩy nổi bật")
                     if not self._is_boost_active(post):
                         self._start_boost(account, post)
                     post.status = "active"
@@ -429,9 +481,106 @@ class LandlordService:
             self._db.rollback()
             raise
 
+    def get_post_detail(self, account: Account, post_id: int) -> dict:
+        post, room = self._get_owned_post(account, post_id)
+        image_rows = list(
+            self._db.scalars(
+                select(RoomImage).where(RoomImage.room_id == room.id).order_by(RoomImage.id.asc())
+            ).all()
+        )
+        amenity_names = [
+            amenity.name
+            for amenity in self._db.scalars(
+                select(Amenity)
+                .join(RoomAmenity, RoomAmenity.amenity_id == Amenity.id)
+                .where(RoomAmenity.room_id == room.id)
+                .order_by(Amenity.id.asc())
+            ).all()
+        ]
+        requests_rows = self._db.execute(
+            select(RentalRequest)
+            .where(RentalRequest.post_id == post.id)
+            .order_by(RentalRequest.created_at.desc())
+        ).scalars().all()
+        from app.features.users.models.profile import Profile
+        rental_requests_out = []
+        for req in requests_rows:
+            profile = self._db.get(Profile, req.account_id)
+            req_account = self._db.get(Account, req.account_id)
+            rental_requests_out.append({
+                "id": req.id,
+                "tenant_name": profile.full_name if profile else (req_account.username if req_account else "N/A"),
+                "tenant_phone": profile.phone if profile else None,
+                "start_date": req.start_date.isoformat() if req.start_date else None,
+                "note": req.note,
+                "status": req.status,
+                "created_at": req.created_at.isoformat() if req.created_at else None,
+            })
+        status_value = self._landlord_status(post)
+        favorite_count = self._favorite_counts_by_post([post.id]).get(post.id, 0)
+        views = self._interaction_count([post.id], "view")
+        address = room.full_address or ", ".join(
+            part for part in [room.street, room.ward, room.district, room.city] if part
+        )
+        return {
+            "id": post.id,
+            "post_id": post.id,
+            "room_id": room.id,
+            "room_code": room.room_code,
+            "title": post.title or room.title,
+            "description": post.description if post.description is not None else room.description,
+            "status": status_value,
+            "is_vip": status_value == "boosted",
+            "boosted_at": post.boosted_at,
+            "boost_expires_at": post.boost_expires_at,
+            "boost_days_left": self._boost_days_left(post),
+            "created_at": post.created_at,
+            "moderation_reason": post.moderation_reason,
+            "room": {
+                "id": room.id,
+                "room_code": room.room_code,
+                "title": room.title,
+                "description": room.description,
+                "room_type": room.room_type,
+                "area": room.area,
+                "max_people": room.max_people,
+                "current_people": room.current_people,
+                "price": room.price,
+                "deposit": room.deposit,
+                "electricity_price": room.electricity_price,
+                "water_price": room.water_price,
+                "internet_price": room.internet_price,
+                "parking_price": room.parking_price,
+                "status": room.status,
+                "city": room.city,
+                "district": room.district,
+                "ward": room.ward,
+                "street": room.street,
+                "full_address": room.full_address,
+                "address": address,
+                "latitude": room.latitude,
+                "longitude": room.longitude,
+                "contact_name": room.contact_name,
+                "contact_phone": room.contact_phone,
+                "contact_social": room.contact_social,
+            },
+            "images": [{"id": img.id, "image_url": img.image_url} for img in image_rows],
+            "amenities": amenity_names,
+            "rental_requests": rental_requests_out,
+            "views": views,
+            "likes": favorite_count,
+        }
+
     def delete_post(self, account: Account, post_id: int) -> dict[str, bool]:
         try:
             post, _room = self._get_owned_post(account, post_id)
+            has_history = self._db.scalar(select(RentalHistory.id).where(RentalHistory.post_id == post.id)) is not None
+            has_requests = self._db.scalar(select(RentalRequest.id).where(RentalRequest.post_id == post.id)) is not None
+            if has_history or has_requests:
+                post.status = "closed"
+                self._clear_boost(post)
+                self._db.commit()
+                return {"success": True}
             self._db.execute(delete(Favorite).where(Favorite.post_id == post.id))
             self._db.delete(post)
             self._db.commit()
@@ -575,12 +724,12 @@ class LandlordService:
         return images
 
     def _room_out(self, room: Room) -> LandlordRoomOut:
-        images = [
-            img.image_url
-            for img in self._db.scalars(
+        image_rows = list(
+            self._db.scalars(
                 select(RoomImage).where(RoomImage.room_id == room.id).order_by(RoomImage.id.asc())
             ).all()
-        ]
+        )
+        images = [img.image_url for img in image_rows]
         amenities = [
             amenity.name
             for amenity in self._db.scalars(
@@ -616,11 +765,16 @@ class LandlordService:
             longitude=room.longitude,
             price=room.price,
             deposit=room.deposit,
+            electricity_price=room.electricity_price,
+            water_price=room.water_price,
+            internet_price=room.internet_price,
+            parking_price=room.parking_price,
             status=room.status,
             contact_name=room.contact_name,
             contact_phone=room.contact_phone,
             contact_social=room.contact_social,
             images=images,
+            image_items=[{"id": img.id, "image_url": img.image_url} for img in image_rows],
             amenities=amenities,
             created_at=room.created_at,
         )
@@ -651,13 +805,14 @@ class LandlordService:
             boosted_at=post.boosted_at,
             boost_expires_at=post.boost_expires_at,
             boost_days_left=boost_days_left,
-            views=0,
+            views=self._interaction_count([post.id], "view"),
             likes=favorite_count,
             comments=0,
             boostDaysLeft=boost_days_left,
             boostTotalDays=(post.boost_expires_at - post.boosted_at).days if status_value == "boosted" else 0,
             badges=["Trang chủ"] if status_value == "boosted" else [],
             thumbnail=thumbnail,
+            moderation_reason=post.moderation_reason,
         )
 
     def _favorite_counts_by_post(self, post_ids: Iterable[int]) -> dict[int, int]:
@@ -671,12 +826,28 @@ class LandlordService:
         ).all()
         return {int(post_id): int(count) for post_id, count in rows}
 
+    def _interaction_count(self, post_ids: Iterable[int], kind: str) -> int:
+        ids = list({int(post_id) for post_id in post_ids})
+        if not ids:
+            return 0
+        return int(
+            self._db.scalar(
+                select(func.count()).select_from(PostInteraction).where(
+                    PostInteraction.post_id.in_(ids),
+                    PostInteraction.kind == kind,
+                )
+            )
+            or 0
+        )
+
     def _weekly_interactions(self, post_ids: Iterable[int]) -> list[dict[str, int | str]]:
         ids = list({int(post_id) for post_id in post_ids})
         today = date.today()
         days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
         labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
         likes_by_day = {day.isoformat(): 0 for day in days}
+        views_by_day = {day.isoformat(): 0 for day in days}
+        contacts_by_day = {day.isoformat(): 0 for day in days}
 
         if ids:
             start_at = datetime.combine(days[0], time.min)
@@ -689,13 +860,24 @@ class LandlordService:
                 key = str(day_value)
                 if key in likes_by_day:
                     likes_by_day[key] = int(count)
+            interaction_rows = self._db.execute(
+                select(func.date(PostInteraction.created_at), PostInteraction.kind, func.count(PostInteraction.id))
+                .where(PostInteraction.post_id.in_(ids), PostInteraction.created_at >= start_at)
+                .group_by(func.date(PostInteraction.created_at), PostInteraction.kind)
+            ).all()
+            for day_value, kind, count in interaction_rows:
+                key = str(day_value)
+                if kind == "view" and key in views_by_day:
+                    views_by_day[key] = int(count)
+                elif kind == "contact" and key in contacts_by_day:
+                    contacts_by_day[key] = int(count)
 
         return [
             {
                 "label": labels[day.weekday()],
                 "day": labels[day.weekday()],
-                "views": 0,
-                "contacts": 0,
+                "views": views_by_day[day.isoformat()],
+                "contacts": contacts_by_day[day.isoformat()],
                 "likes": likes_by_day[day.isoformat()],
             }
             for day in days

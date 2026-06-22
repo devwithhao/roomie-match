@@ -10,6 +10,8 @@ from app.features.rental_requests.schemas.rental_history import RentalHistoryLis
 from app.features.users.schemas.profile import MeProfileResponse, UpdateProfileIn
 from app.features.rental_requests.services.rental_history_service import RentalHistoryService
 from app.features.users.services.profile_service import ProfileService
+from app.features.rental_requests.schemas.requests import RentalRequestListOut, RentalRequestOut
+from app.features.rental_requests.services.request_service import RentalRequestService
 
 router = APIRouter()
 
@@ -47,4 +49,21 @@ def list_my_rental_history(
         status=status,
         query=q,
     )
+
+
+@router.get("/me/rental-requests", response_model=RentalRequestListOut)
+def list_my_rental_requests(
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+) -> RentalRequestListOut:
+    return RentalRequestService(db).list_tenant(account)
+
+
+@router.patch("/me/rental-requests/{request_id}/cancel", response_model=RentalRequestOut)
+def cancel_my_rental_request(
+    request_id: int,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+) -> RentalRequestOut:
+    return RentalRequestService(db).cancel(account, request_id)
 

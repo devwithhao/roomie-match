@@ -88,7 +88,7 @@ def test_landlord_create_room_publishes_active_post(client, db_session: Session,
     assert db_session.query(RoomAmenity).filter_by(room_id=room.id).count() == 2
 
     post = db_session.query(Post).filter_by(room_id=room.id).one()
-    assert post.status == "active"
+    assert post.status == "pending"
     quantities = {
         item.feature_key: item.quantity
         for item in db_session.query(Entitlement).filter_by(account_id=landlord_id).all()
@@ -103,14 +103,10 @@ def test_landlord_create_room_publishes_active_post(client, db_session: Session,
 
     public_list = client.get("/api/v1/posts")
     assert public_list.status_code == 200
-    item = public_list.json()["items"][0]
-    assert item["post_id"] == post.id
-    assert item["room_code"] == room.room_code
+    assert public_list.json()["items"] == []
 
     detail = client.get(f"/api/v1/posts/{post.id}")
-    assert detail.status_code == 200
-    assert detail.json()["room"]["room_code"] == room.room_code
-    assert detail.json()["images"][0]["image_url"] == "https://cdn.example.com/room.jpg"
+    assert detail.status_code == 404
 
 
 def test_landlord_create_room_does_not_publish_by_default(client, db_session: Session):

@@ -23,9 +23,11 @@ class Package(Base):
     period: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True
     )  # '30_days', 'annual', etc.
+    icon: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    target_customer: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     features: Mapped[Optional[dict]] = mapped_column(
         JSON, nullable=True
-    )  # ['vip_listing', 'priority_match']
+    )  # just the list or dict
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -167,6 +167,15 @@ class EntitlementRepository:
             .all()
         )
 
+    def get_by_source_purchase_id(self, purchase_id: int) -> list[Entitlement]:
+        return list(
+            self.db.scalars(
+                select(Entitlement)
+                .where(Entitlement.source_purchase_id == purchase_id)
+                .order_by(Entitlement.id.asc())
+            ).all()
+        )
+
     def update_quantity(
         self, entitlement_id: int, new_quantity: int
     ) -> Entitlement | None:

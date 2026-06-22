@@ -19,6 +19,7 @@ from app.features.rooms.schemas.post import (
 )
 from app.features.rooms.schemas.search import PostSearchFilter
 from app.features.users.models.profile import Profile
+from app.features.landlord.models import PostInteraction
 from app.shared.pagination.paginator import PageParams, total_pages
 
 
@@ -78,6 +79,8 @@ class PostService:
                 detail="Post not found or not active",
             )
         post, room, account = detail
+        self._db.add(PostInteraction(post_id=post.id, account_id=None, kind="view"))
+        self._db.commit()
 
         images = [
             ImageOut(id=img.id, image_url=img.image_url)
@@ -94,8 +97,8 @@ class PostService:
             account_id=account.id,
             display_name=account.username,
             avatar_url=profile.avatar_url if profile is not None else None,
-            contact_phone=room.contact_phone,
-            contact_social=room.contact_social,
+            contact_phone=None,
+            contact_social=None,
         )
 
         return PostDetailOut(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,6 +27,10 @@ class LandlordRoomPayload(BaseModel):
     internet_price: int | None = None
     parking_price: int | None = None
     deposit: int | None = None
+    electricity_price: int | None = None
+    water_price: int | None = None
+    internet_price: int | None = None
+    parking_price: int | None = None
     status: str = "available"
     contact_name: str | None = Field(default=None, max_length=100)
     contact_phone: str | None = Field(default=None, max_length=20)
@@ -63,6 +68,7 @@ class LandlordRoomOut(BaseModel):
     contact_phone: str | None = None
     contact_social: str | None = None
     images: list[str]
+    image_items: list[dict[str, int | str]] = Field(default_factory=list)
     amenities: list[str]
     created_at: datetime
 
@@ -114,6 +120,29 @@ class LandlordPostOut(BaseModel):
     boostTotalDays: int = 0
     badges: list[str]
     thumbnail: str | None = None
+    moderation_reason: str | None = None
+
+
+class LandlordPostDetailOut(BaseModel):
+    id: int
+    post_id: int
+    room_id: int
+    room_code: str | None = None
+    title: str | None = None
+    description: str | None = None
+    status: str
+    is_vip: bool
+    boosted_at: datetime | None = None
+    boost_expires_at: datetime | None = None
+    boost_days_left: int = 0
+    created_at: datetime
+    moderation_reason: str | None = None
+    room: dict
+    images: list[dict]
+    amenities: list[str]
+    rental_requests: list[dict] = Field(default_factory=list)
+    views: int = 0
+    likes: int = 0
 
 
 class LandlordPostListOut(BaseModel):
@@ -131,9 +160,49 @@ class LandlordStatsOut(BaseModel):
     total_rooms: int
     total_posts: int
     total_favorites: int
+    total_views: int = 0
+    total_reviews: int = 0
+    total_tenants: int = 0
     total_contacts: int = 0
     summary: list[dict[str, int | str]]
     weeklyInteractions: list[dict[str, int | str]]
     roomStatus: list[dict[str, int | str]]
     postPerformance: list[dict[str, int | str]]
     roomDetails: list[dict[str, int | str | None]]
+
+
+class LandlordVerificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    legal_name: str
+    identity_number: str
+    issued_date: date
+    issued_place: str
+    front_image_url: str
+    back_image_url: str
+    status: str
+    rejection_reason: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class NotificationOut(BaseModel):
+    id: int
+    type: str
+    title: str
+    message: str
+    entity_type: str | None = None
+    entity_id: int | None = None
+    read: bool
+    created_at: datetime
+
+
+class NotificationListOut(BaseModel):
+    items: list[NotificationOut]
+    total: int
+    unread: int
+
+
+class NotificationUpdate(BaseModel):
+    read: Literal[True]
