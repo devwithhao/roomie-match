@@ -147,7 +147,6 @@ class RentalRequestService:
             tenant_facebook=profile.facebook if profile else None,
             tenant_instagram=profile.instagram if profile else None,
             tenant_twitter=profile.twitter if profile else None,
-            tenant_zalo=profile.zalo if profile else None,
             landlord_id=request.landlord_id,
             room_id=request.room_id,
             post_id=request.post_id,

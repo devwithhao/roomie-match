@@ -28,7 +28,6 @@ class ProfileOut(BaseModel):
     facebook: str | None = None
     instagram: str | None = None
     twitter: str | None = None
-    zalo: str | None = None
     bio: str | None = None
     date_of_birth: date | None = None
     address: str | None = None
@@ -43,7 +42,6 @@ class UpdateProfileIn(BaseModel):
     facebook: str | None = Field(default=None, max_length=255)
     instagram: str | None = Field(default=None, max_length=255)
     twitter: str | None = Field(default=None, max_length=255)
-    zalo: str | None = Field(default=None, max_length=255)
     bio: str | None = Field(default=None, max_length=2000)
     date_of_birth: date | None = None
     address: str | None = Field(default=None, max_length=255)
@@ -59,7 +57,6 @@ class UpdateProfileIn(BaseModel):
             and self.facebook is None
             and self.instagram is None
             and self.twitter is None
-            and self.zalo is None
             and self.bio is None
             and self.date_of_birth is None
             and self.address is None

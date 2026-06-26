@@ -49,7 +49,7 @@ class RentalHistoryService:
                 start_date=history.start_date,
                 end_date=history.end_date,
                 rental_status=history.status,
-                can_review=history.status in {"active", "ended"},
+                can_review=history.status == "completed",
                 can_view_post=post.status == "active",
                 my_rating=review.rating if review else None,
             )

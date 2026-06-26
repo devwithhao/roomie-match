@@ -548,7 +548,7 @@ def create_rooms_and_posts(
             "deposit": 7800000,
             "contact_name": "Nguyễn Minh Chủ",
             "contact_phone": "0900000000",
-            "contact_social": "zalo:0900000000",
+            "contact_social": "0900000000",
             "is_vip": True,
             "amenities": ["Wifi", "Máy lạnh", "Thang máy", "Bảo vệ"],
             "images": [
@@ -579,7 +579,7 @@ def create_rooms_and_posts(
             "deposit": 5200000,
             "contact_name": "Nguyễn Minh Chủ",
             "contact_phone": "0900000000",
-            "contact_social": "zalo:0900000000",
+            "contact_social": "0900000000",
             "is_vip": False,
             "amenities": ["Wifi", "Ban công", "Máy giặt", "Chỗ để xe"],
             "images": [
@@ -610,7 +610,7 @@ def create_rooms_and_posts(
             "deposit": 4300000,
             "contact_name": "Nguyễn Minh Chủ",
             "contact_phone": "0900000000",
-            "contact_social": "zalo:0900000000",
+            "contact_social": "0900000000",
             "is_vip": True,
             "amenities": ["Wifi", "Máy lạnh", "Bếp riêng", "Nhà vệ sinh riêng"],
             "images": [
@@ -641,7 +641,7 @@ def create_rooms_and_posts(
             "deposit": 6900000,
             "contact_name": "Nguyễn Minh Chủ",
             "contact_phone": "0900000000",
-            "contact_social": "zalo:0900000000",
+            "contact_social": "0900000000",
             "is_vip": False,
             "amenities": ["Wifi", "Máy lạnh", "Thang máy", "Bảo vệ", "Chỗ để xe"],
             "images": [
@@ -672,7 +672,7 @@ def create_rooms_and_posts(
             "deposit": 3900000,
             "contact_name": "Nguyễn Minh Chủ",
             "contact_phone": "0900000000",
-            "contact_social": "zalo:0900000000",
+            "contact_social": "0900000000",
             "is_vip": False,
             "amenities": ["Wifi", "Cửa sổ", "Chỗ để xe", "Giờ giấc tự do"],
             "images": [
@@ -703,7 +703,7 @@ def create_rooms_and_posts(
             "deposit": 5600000,
             "contact_name": "Nguyễn Minh Chủ",
             "contact_phone": "0900000000",
-            "contact_social": "zalo:0900000000",
+            "contact_social": "0900000000",
             "is_vip": True,
             "amenities": ["Wifi", "Máy lạnh", "Thang máy", "Bảo vệ"],
             "images": [
@@ -734,7 +734,7 @@ def create_rooms_and_posts(
             "deposit": 3200000,
             "contact_name": "Trần Lan Chủ",
             "contact_phone": "0900000010",
-            "contact_social": "zalo:0900000010",
+            "contact_social": "0900000010",
             "is_vip": False,
             "amenities": ["Wifi", "Cửa sổ", "Chỗ để xe", "Máy giặt"],
             "images": [
@@ -765,7 +765,7 @@ def create_rooms_and_posts(
             "deposit": 3800000,
             "contact_name": "Trần Lan Chủ",
             "contact_phone": "0900000010",
-            "contact_social": "zalo:0900000010",
+            "contact_social": "0900000010",
             "is_vip": True,
             "amenities": ["Wifi", "Máy lạnh", "Bếp riêng", "Chỗ để xe"],
             "images": [
@@ -796,7 +796,7 @@ def create_rooms_and_posts(
             "deposit": 3000000,
             "contact_name": "Trần Lan Chủ",
             "contact_phone": "0900000010",
-            "contact_social": "zalo:0900000010",
+            "contact_social": "0900000010",
             "is_vip": False,
             "amenities": ["Wifi", "Bếp riêng", "Nhà vệ sinh riêng", "Chỗ để xe"],
             "images": [
@@ -827,7 +827,7 @@ def create_rooms_and_posts(
             "deposit": 3500000,
             "contact_name": "Trần Lan Chủ",
             "contact_phone": "0900000010",
-            "contact_social": "zalo:0900000010",
+            "contact_social": "0900000010",
             "is_vip": False,
             "amenities": ["Wifi", "Ban công", "Máy lạnh", "Cho nuôi thú cưng"],
             "images": [
