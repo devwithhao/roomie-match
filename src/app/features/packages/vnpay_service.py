@@ -1,7 +1,7 @@
 import urllib.parse
 import hmac
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core.config import settings
 
@@ -19,9 +19,10 @@ class VNPAYService:
 
         vnp_Amount = amount_cents * 100
         
-        now = datetime.now()
+        # VNPAY requires GMT+7 time
+        now = datetime.utcnow() + timedelta(hours=7)
         vnp_CreateDate = now.strftime('%Y%m%d%H%M%S')
-        expire_date = datetime.fromtimestamp(now.timestamp() + 15 * 60)
+        expire_date = now + timedelta(minutes=15)
         vnp_ExpireDate = expire_date.strftime('%Y%m%d%H%M%S')
 
         input_data = {

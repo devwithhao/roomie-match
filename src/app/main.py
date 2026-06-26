@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from app.core.config import settings
+
 from pathlib import Path
 
 from fastapi import FastAPI
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
-from app.core.config import settings
 
 app = FastAPI(title="RoomieMatch API", version="1.0.0")
 
@@ -18,7 +22,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=settings.cloudinary_cloud_name,
+    api_key=settings.cloudinary_api_key,
+    api_secret=settings.cloudinary_api_secret,
+    secure=True
+)
 
 @app.get("/")
 def root() -> dict[str, str]:

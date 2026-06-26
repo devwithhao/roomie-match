@@ -16,6 +16,7 @@ from app.features.admin.routers.users import router as admin_users_router
 from app.features.admin.routers.packages import router as admin_packages_router
 from app.features.admin.routers.role_features import router as admin_role_features_router
 from app.features.admin.routers.moderation import router as admin_moderation_router
+from app.shared.routers.upload import router as upload_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -32,3 +33,4 @@ api_router.include_router(packages_router, prefix="/packages", tags=["packages"]
 api_router.include_router(packages_webhook_router, prefix="/packages", tags=["packages"])
 api_router.include_router(vnpay_router, prefix="/payments/vnpay", tags=["payments"])
 api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
+api_router.include_router(upload_router, prefix="/upload", tags=["upload"])
