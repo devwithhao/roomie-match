@@ -17,6 +17,7 @@ class Package(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="vnd", nullable=False)
+    target_role: Mapped[str] = mapped_column(String(20), default="tenant", nullable=False)
     credits_match: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     credits_chatbot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     period: Mapped[Optional[str]] = mapped_column(

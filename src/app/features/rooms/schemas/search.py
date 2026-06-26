@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 
 class PostSearchFilter(BaseModel):
+    keyword: str | None = Query(None, description="Keyword")
     city: str | None = Query(None, description="City")
     district: str | None = Query(None, description="District")
     ward: str | None = Query(None, description="Ward")

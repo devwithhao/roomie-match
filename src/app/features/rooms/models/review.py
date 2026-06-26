@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -32,4 +32,5 @@ class Review(Base):
 
     __table_args__ = (
         CheckConstraint("rating BETWEEN 1 AND 5", name="check_rating_range"),
+        UniqueConstraint("account_id", "room_id", name="uq_reviews_account_room"),
     )

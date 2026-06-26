@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
+from app.features.rooms.models.review import Review
 
 
 class RentalHistoryRepository:
@@ -42,11 +43,15 @@ class RentalHistoryRepository:
         offset: int,
         status: str | None = None,
         query: str | None = None,
-    ) -> list[tuple[RentalHistory, Room, Post]]:
+    ) -> list[tuple[RentalHistory, Room, Post, Review | None]]:
         stmt = (
-            select(RentalHistory, Room, Post)
+            select(RentalHistory, Room, Post, Review)
             .join(Room, RentalHistory.room_id == Room.id)
             .join(Post, RentalHistory.post_id == Post.id)
+            .outerjoin(
+                Review,
+                (Review.room_id == RentalHistory.room_id) & (Review.account_id == account_id)
+            )
             .where(RentalHistory.account_id == account_id)
             .order_by(RentalHistory.start_date.desc(), RentalHistory.id.desc())
             .limit(limit)

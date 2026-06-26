@@ -7,6 +7,8 @@ from app.features.users.models import Account
 from app.features.packages.schemas import PurchaseCreate
 from app.features.packages.service import PackageService
 from app.features.packages.vnpay_service import VNPAYService
+from app.features.users.models.role import Role
+from app.features.users.role_utils import canonical_account_type
 
 router = APIRouter()
 
@@ -19,9 +21,9 @@ def create_vnpay_payment_url(
 ):
     service = PackageService(db)
     try:
-        purchase = service.initiate_purchase(current_account.id, payload.package_id, provider="vnpay")
-        db.commit()
-        
+        role = db.get(Role, current_account.role_id)
+        account_role = canonical_account_type(role.name, role.description) if role else None
+        purchase = service.initiate_purchase(current_account.id, payload.package_id, provider="vnpay", account_role=account_role)
         ip_addr = request.client.host
         
         order_desc = f"Thanh toan don hang {purchase.id} - Ghi co tai khoan {current_account.email}"
@@ -31,10 +33,13 @@ def create_vnpay_payment_url(
             order_desc=order_desc,
             ip_addr=ip_addr
         )
-        
+        db.commit()
         return {"payment_url": payment_url, "purchase_id": purchase.id}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

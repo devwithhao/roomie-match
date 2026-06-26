@@ -49,6 +49,14 @@ class ProfileService:
                 phone=payload.phone,
                 gender=payload.gender,
                 avatar_url=payload.avatar_url,
+                facebook=payload.facebook,
+                instagram=payload.instagram,
+                twitter=payload.twitter,
+                zalo=payload.zalo,
+                bio=payload.bio,
+                date_of_birth=payload.date_of_birth,
+                address=payload.address,
+                hometown=payload.hometown,
             )
         else:
             if payload.full_name is not None:
@@ -59,6 +67,22 @@ class ProfileService:
                 profile.gender = payload.gender
             if payload.avatar_url is not None:
                 profile.avatar_url = payload.avatar_url
+            if payload.facebook is not None:
+                profile.facebook = payload.facebook
+            if payload.instagram is not None:
+                profile.instagram = payload.instagram
+            if payload.twitter is not None:
+                profile.twitter = payload.twitter
+            if payload.zalo is not None:
+                profile.zalo = payload.zalo
+            if payload.bio is not None:
+                profile.bio = payload.bio
+            if payload.date_of_birth is not None:
+                profile.date_of_birth = payload.date_of_birth
+            if payload.address is not None:
+                profile.address = payload.address
+            if payload.hometown is not None:
+                profile.hometown = payload.hometown
 
         self._profiles.update(profile)
         self._db.commit()
@@ -88,5 +112,13 @@ class ProfileService:
                 phone=profile.phone,
                 gender=profile.gender,
                 avatar_url=profile.avatar_url,
+                facebook=profile.facebook,
+                instagram=profile.instagram,
+                twitter=profile.twitter,
+                zalo=profile.zalo,
+                bio=profile.bio,
+                date_of_birth=profile.date_of_birth,
+                address=profile.address,
+                hometown=profile.hometown,
             ),
         )

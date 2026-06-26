@@ -12,6 +12,7 @@ class PackageOut(BaseModel):
     description: Optional[str] = None
     price_cents: int
     currency: str
+    target_role: str = "tenant"
     credits_match: Optional[int] = None
     credits_chatbot: Optional[int] = None
     period: Optional[str] = None
@@ -50,6 +51,7 @@ class EntitlementOut(BaseModel):
     account_id: int
     feature_key: str
     quantity: Optional[int] = None
+    source_purchase_id: Optional[int] = None
     expires_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

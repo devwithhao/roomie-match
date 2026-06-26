@@ -38,3 +38,5 @@ class PaginatedReviewListOut(BaseModel):
     page: int
     page_size: int
     total_pages: int
+    average_rating: float = 0.0
+    rating_counts: dict[int, int] = Field(default_factory=dict)
