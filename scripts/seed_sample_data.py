@@ -179,7 +179,9 @@ def get_or_create_package(
     credits_match: int,
     credits_chatbot: int,
     period: str,
-    features: list[str],
+    features: list | dict,
+    icon: str | None = None,
+    target_role: str = "tenant",
 ) -> Package:
     package = db.scalar(select(Package).where(Package.slug == slug))
     if package is None:
@@ -190,10 +192,12 @@ def get_or_create_package(
     package.description = description
     package.price_cents = price_cents
     package.currency = "vnd"
+    package.target_role = target_role
     package.credits_match = credits_match
     package.credits_chatbot = credits_chatbot
     package.period = period
     package.features = features
+    package.icon = icon
     package.active = True
     db.flush()
     return package
@@ -943,8 +947,11 @@ def create_matching_data(db: Session, *, tenants: list[Account]) -> None:
     ensure_reject(db, tenants[6], tenants[2])
 
 
-def create_package_data(db: Session, *, tenants: list[Account]) -> None:
-    packages = [
+def create_package_data(db: Session, *, landlords: list[Account], tenants: list[Account]) -> None:
+    # ── Gói dành cho người thuê phòng ──────────────────────────────────────
+    # features là list chỉ dùng để hiển thị tính năng trên UI.
+    # Credits thực tế được cấp qua credits_match / credits_chatbot → entitlement key "match" / "chatbot".
+    tenant_packages = [
         get_or_create_package(
             db,
             slug="starter",
@@ -955,6 +962,8 @@ def create_package_data(db: Session, *, tenants: list[Account]) -> None:
             credits_chatbot=20,
             period="30_days",
             features=["matching", "chatbot"],
+            icon="rocket",
+            target_role="tenant",
         ),
         get_or_create_package(
             db,
@@ -966,6 +975,8 @@ def create_package_data(db: Session, *, tenants: list[Account]) -> None:
             credits_chatbot=80,
             period="30_days",
             features=["matching", "chatbot", "priority_match"],
+            icon="star",
+            target_role="tenant",
         ),
         get_or_create_package(
             db,
@@ -977,59 +988,113 @@ def create_package_data(db: Session, *, tenants: list[Account]) -> None:
             credits_chatbot=240,
             period="30_days",
             features=["matching", "chatbot", "priority_match", "vip_listing"],
+            icon="crown",
+            target_role="tenant",
         ),
     ]
 
-    purchases = [
+    # ── Gói dành cho chủ trọ ───────────────────────────────────────────────
+    # features là dict với 3 key mà _grant_entitlements đọc để tạo entitlement:
+    #   posts_limit  → số lần đăng bài (mỗi lần tạo post trừ 1)
+    #   photo_limit  → số ảnh upload (mỗi ảnh trừ 1)
+    #   boost_limit  → số lần boost/đẩy tin nổi bật (mỗi lần boost trừ 1)
+    landlord_packages = [
+        get_or_create_package(
+            db,
+            slug="landlord-basic",
+            name="Chủ Trọ Cơ Bản",
+            description="Gói cơ bản cho chủ trọ mới: 3 bài đăng, 15 ảnh, không boost.",
+            price_cents=49000,
+            credits_match=0,
+            credits_chatbot=0,
+            period="30_days",
+            features={"posts_limit": 3, "photo_limit": 15, "boost_limit": 0},
+            icon="home",
+            target_role="landlord",
+        ),
+        get_or_create_package(
+            db,
+            slug="landlord-pro",
+            name="Chủ Trọ Pro",
+            description="Gói Pro: 30 bài đăng, 60 ảnh, 5 lần boost nổi bật.",
+            price_cents=199000,
+            credits_match=0,
+            credits_chatbot=0,
+            period="30_days",
+            features={"posts_limit": 30, "photo_limit": 60, "boost_limit": 5},
+            icon="zap",
+            target_role="landlord",
+        ),
+        get_or_create_package(
+            db,
+            slug="landlord-vip",
+            name="Chủ Trọ VIP",
+            description="Gói VIP: 100 bài đăng, 150 ảnh, 20 lần boost — dành cho chủ trọ chuyên nghiệp.",
+            price_cents=499000,
+            credits_match=0,
+            credits_chatbot=0,
+            period="30_days",
+            features={"posts_limit": 100, "photo_limit": 150, "boost_limit": 20},
+            icon="shield",
+            target_role="landlord",
+        ),
+    ]
+
+    # ── Purchases & entitlements mẫu cho tenant ────────────────────────────
+    tenant_purchases = [
         ensure_purchase(
             db,
             account=tenants[0],
-            package=packages[0],
+            package=tenant_packages[0],
             provider_payment_id="sample-pay-tenant-demo-starter",
             status="paid",
         ),
         ensure_purchase(
             db,
             account=tenants[1],
-            package=packages[1],
+            package=tenant_packages[1],
             provider_payment_id="sample-pay-tenant01-plus",
             status="paid",
         ),
         ensure_purchase(
             db,
             account=tenants[2],
-            package=packages[2],
+            package=tenant_packages[2],
             provider_payment_id="sample-pay-tenant02-premium",
             status="pending",
         ),
     ]
 
     expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-    for account, purchase, package in zip(tenants[:3], purchases, packages, strict=True):
-        ensure_entitlement(
-            db,
-            account=account,
-            feature_key="match",
-            quantity=package.credits_match,
-            source_purchase=purchase,
-            expires_at=expires_at,
-        )
-        ensure_entitlement(
-            db,
-            account=account,
-            feature_key="chatbot",
-            quantity=package.credits_chatbot,
-            source_purchase=purchase,
-            expires_at=expires_at,
-        )
-        ensure_entitlement(
-            db,
-            account=account,
-            feature_key="active_subscription",
-            quantity=None,
-            source_purchase=purchase,
-            expires_at=expires_at,
-        )
+
+    # Cấp entitlement cho tenants (chỉ 2 người đầu vì tenant[2] pending)
+    for account, purchase, package in zip(tenants[:3], tenant_purchases, tenant_packages, strict=True):
+        ensure_entitlement(db, account=account, feature_key="match", quantity=package.credits_match, source_purchase=purchase, expires_at=expires_at)
+        ensure_entitlement(db, account=account, feature_key="chatbot", quantity=package.credits_chatbot, source_purchase=purchase, expires_at=expires_at)
+        ensure_entitlement(db, account=account, feature_key="active_subscription", quantity=None, source_purchase=purchase, expires_at=expires_at)
+
+    # ── Purchases & entitlements mẫu cho landlord ─────────────────────────
+    # landlord[0] mua gói Pro (paid → được cấp entitlement thực tế để test)
+    # landlord[1] mua gói Basic (pending → chưa được cấp, mô phỏng chưa thanh toán)
+    landlord_purchase_pro = ensure_purchase(
+        db,
+        account=landlords[0],
+        package=landlord_packages[1],  # Pro
+        provider_payment_id="sample-pay-landlord-demo-pro",
+        status="paid",
+    )
+    ensure_purchase(
+        db,
+        account=landlords[1],
+        package=landlord_packages[0],  # Basic
+        provider_payment_id="sample-pay-landlord-dongnai-basic",
+        status="pending",
+    )
+
+    # Cấp entitlement posts_limit/photo_limit/boost_limit cho landlord[0]
+    for feature_key, quantity in landlord_packages[1].features.items():
+        ensure_entitlement(db, account=landlords[0], feature_key=feature_key, quantity=quantity, source_purchase=landlord_purchase_pro, expires_at=expires_at)
+    ensure_entitlement(db, account=landlords[0], feature_key="active_subscription", quantity=None, source_purchase=landlord_purchase_pro, expires_at=expires_at)
 
 
 def create_chatbot_data(db: Session, *, tenants: list[Account]) -> None:
@@ -1071,7 +1136,7 @@ def seed() -> None:
         )
         create_engagement_data(db, tenants=tenants, rooms=rooms, posts=posts)
         create_matching_data(db, tenants=tenants)
-        create_package_data(db, tenants=tenants)
+        create_package_data(db, landlords=landlords, tenants=tenants)
         create_chatbot_data(db, tenants=tenants)
         db.commit()
     except Exception:
