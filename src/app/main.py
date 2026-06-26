@@ -1,6 +1,6 @@
-from app.core.config import settings
-# pyrefly: ignore [invalid-syntax]
 from __future__ import annotations
+
+from app.core.config import settings
 
 from pathlib import Path
 
