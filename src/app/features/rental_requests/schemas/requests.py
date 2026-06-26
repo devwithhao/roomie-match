@@ -31,7 +31,6 @@ class RentalRequestOut(BaseModel):
     tenant_facebook: str | None = None
     tenant_instagram: str | None = None
     tenant_twitter: str | None = None
-    tenant_zalo: str | None = None
     landlord_id: int
     room_id: int
     post_id: int

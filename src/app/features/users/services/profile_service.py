@@ -52,7 +52,6 @@ class ProfileService:
                 facebook=payload.facebook,
                 instagram=payload.instagram,
                 twitter=payload.twitter,
-                zalo=payload.zalo,
                 bio=payload.bio,
                 date_of_birth=payload.date_of_birth,
                 address=payload.address,
@@ -73,8 +72,6 @@ class ProfileService:
                 profile.instagram = payload.instagram
             if payload.twitter is not None:
                 profile.twitter = payload.twitter
-            if payload.zalo is not None:
-                profile.zalo = payload.zalo
             if payload.bio is not None:
                 profile.bio = payload.bio
             if payload.date_of_birth is not None:
@@ -115,7 +112,6 @@ class ProfileService:
                 facebook=profile.facebook,
                 instagram=profile.instagram,
                 twitter=profile.twitter,
-                zalo=profile.zalo,
                 bio=profile.bio,
                 date_of_birth=profile.date_of_birth,
                 address=profile.address,
