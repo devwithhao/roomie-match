@@ -1,3 +1,5 @@
+from app.core.config import settings
+# pyrefly: ignore [invalid-syntax]
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,7 +22,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=settings.cloudinary_cloud_name,
+    api_key=settings.cloudinary_api_key,
+    api_secret=settings.cloudinary_api_secret,
+    secure=True
+)
 
 @app.get("/")
 def root() -> dict[str, str]:
