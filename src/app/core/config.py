@@ -15,8 +15,26 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_expire_minutes: int = 60
     groq_api_key: str = ""
+    image_storage_provider: str = "local"
+    local_storage_dir: str = "../stogate"
+    private_storage_dir: str = "../private_stogate"
+    public_storage_url: str = "/stogate"
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
+    cloudinary_folder: str = "roomie-match/rooms"
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: str = ""
+    cloudflare_delivery_url: str = ""
     # Neu true: loi 500 tu register se kem thong bao loi DB (chi localhost/debug)
     app_debug: bool = Field(default=False, validation_alias="APP_DEBUG")
+    google_client_id: str = ""
+    
+    # VNPAY Settings
+    vnpay_tmn_code: str = ""
+    vnpay_hash_secret: str = ""
+    vnpay_url: str = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+    vnpay_return_url: str = "http://localhost:5173/payment/vnpay-return"
 
 
 settings = Settings()

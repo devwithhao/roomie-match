@@ -3,12 +3,14 @@ from __future__ import annotations
 # Importing this module registers every SQLAlchemy model on Base.metadata.
 from app.features.chatbot.models.chat_message import ChatMessage
 from app.features.chatbot.models.chat_session import ChatSession
+from app.features.landlord.models import LandlordVerification, Notification, PostInteraction, RentalRequest
 from app.features.matching.models.match import UserMatch
 from app.features.matching.models.preference import UserPreference
 from app.features.matching.models.reject import UserReject
 from app.features.packages.models.entitlement import Entitlement
 from app.features.packages.models.package import Package
 from app.features.packages.models.purchase import Purchase
+from app.features.packages.models.usage_event import PackageUsageEvent
 from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.amenity import Amenity
 from app.features.rooms.models.favorite import Favorite
@@ -28,11 +30,16 @@ __all__ = [
     "ChatSession",
     "Entitlement",
     "Favorite",
+    "LandlordVerification",
+    "Notification",
     "Package",
+    "PackageUsageEvent",
     "Post",
+    "PostInteraction",
     "Profile",
     "Purchase",
     "RentalHistory",
+    "RentalRequest",
     "Review",
     "Role",
     "Room",

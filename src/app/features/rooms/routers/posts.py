@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.features.users.dependencies import get_current_account
@@ -16,6 +17,11 @@ from app.features.rooms.schemas.favorite import (
 )
 from app.features.rooms.services.favorite_service import FavoriteService
 from app.features.rooms.services.post_service import PostService
+from app.features.landlord.models import PostInteraction
+from app.features.rental_requests.schemas.requests import RentalRequestCreate, RentalRequestOut
+from app.features.rental_requests.services.request_service import RentalRequestService
+from app.features.rooms.models.post import Post
+from app.features.rooms.models.room import Room
 
 router = APIRouter()
 
@@ -64,4 +70,31 @@ def save_post(
     db: Session = Depends(get_db),
 ) -> SavePostResponse:
     return FavoriteService(db).save_post(account, post_id)
+
+
+@router.post("/{post_id}/rental-requests", response_model=RentalRequestOut)
+def create_rental_request(
+    post_id: int,
+    payload: RentalRequestCreate,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+) -> RentalRequestOut:
+    return RentalRequestService(db).create(account, post_id, payload)
+
+
+@router.post("/{post_id}/contact-view")
+def reveal_contact(
+    post_id: int,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+) -> dict[str, str | None]:
+    RentalRequestService(db)._require_role(account, "tenant")
+    row = db.execute(select(Post, Room).join(Room, Post.room_id == Room.id).where(Post.id == post_id, Post.status == "active")).first()
+    if row is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Post not found")
+    post, room = row
+    db.add(PostInteraction(post_id=post.id, account_id=account.id, kind="contact"))
+    db.commit()
+    return {"name": room.contact_name, "phone": room.contact_phone, "social": room.contact_social}
     

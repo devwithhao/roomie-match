@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
+from datetime import datetime
 
-from app.features.packages.models import Package, Purchase, Entitlement
+from sqlalchemy import select, and_, or_
+
+from app.features.packages.models import Entitlement, Package, PackageUsageEvent, Purchase
 
 
 class PackageRepository:
@@ -22,10 +24,13 @@ class PackageRepository:
             select(Package).where(Package.slug == slug)
         ).scalar_one_or_none()
 
-    def get_all_active(self) -> list[Package]:
+    def get_all_active(self, target_role: str | None = None) -> list[Package]:
         """Get all active packages"""
+        stmt = select(Package).where(Package.active == True)
+        if target_role:
+            stmt = stmt.where(Package.target_role.in_([target_role, "all"]))
         return (
-            self.db.execute(select(Package).where(Package.active == True))
+            self.db.execute(stmt.order_by(Package.price_cents.asc(), Package.id.asc()))
             .scalars()
             .all()
         )
@@ -119,8 +124,36 @@ class EntitlementRepository:
                     Entitlement.account_id == account_id,
                     Entitlement.feature_key == feature_key,
                 )
+            ).order_by(Entitlement.created_at.desc(), Entitlement.id.desc())
+        ).scalars().first()
+
+    def get_consumable_by_account_and_feature(
+        self, account_id: int, feature_key: str
+    ) -> Entitlement | None:
+        now = datetime.utcnow()
+        return self.db.execute(
+            select(Entitlement)
+            .where(
+                Entitlement.account_id == account_id,
+                Entitlement.feature_key == feature_key,
+                or_(Entitlement.expires_at.is_(None), Entitlement.expires_at >= now),
+                or_(Entitlement.quantity.is_(None), Entitlement.quantity > 0),
             )
-        ).scalar_one_or_none()
+            .order_by(Entitlement.expires_at.asc(), Entitlement.created_at.asc(), Entitlement.id.asc())
+        ).scalars().first()
+
+    def get_available_quantity(self, account_id: int, feature_key: str) -> int | None:
+        now = datetime.utcnow()
+        entitlements = self.db.execute(
+            select(Entitlement).where(
+                Entitlement.account_id == account_id,
+                Entitlement.feature_key == feature_key,
+                or_(Entitlement.expires_at.is_(None), Entitlement.expires_at >= now),
+            )
+        ).scalars().all()
+        if any(item.quantity is None for item in entitlements):
+            return None
+        return sum(item.quantity or 0 for item in entitlements)
 
     def get_by_account_id(self, account_id: int) -> list[Entitlement]:
         """Get all entitlements for an account"""
@@ -134,6 +167,15 @@ class EntitlementRepository:
             .all()
         )
 
+    def get_by_source_purchase_id(self, purchase_id: int) -> list[Entitlement]:
+        return list(
+            self.db.scalars(
+                select(Entitlement)
+                .where(Entitlement.source_purchase_id == purchase_id)
+                .order_by(Entitlement.id.asc())
+            ).all()
+        )
+
     def update_quantity(
         self, entitlement_id: int, new_quantity: int
     ) -> Entitlement | None:
@@ -143,3 +185,13 @@ class EntitlementRepository:
             entitlement.quantity = max(0, new_quantity)  # don't go negative
             self.db.flush()
         return entitlement
+
+
+class PackageUsageEventRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create(self, event: PackageUsageEvent) -> PackageUsageEvent:
+        self.db.add(event)
+        self.db.flush()
+        return event

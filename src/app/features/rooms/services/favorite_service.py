@@ -109,7 +109,7 @@ class FavoriteService:
         return SavedPostOut(
             post_id=post.id,
             room_id=room.id,
-            title=room.title,
+            title=post.title or room.title,
             full_address=room.full_address,
             price=room.price,
             post_status=post.status,

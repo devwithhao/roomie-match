@@ -12,6 +12,7 @@ class Room(Base):
     __tablename__ = "rooms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    room_code: Mapped[str | None] = mapped_column(String(30), unique=True, nullable=True)
     account_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("accounts.id", name="fk_rooms_account"),
