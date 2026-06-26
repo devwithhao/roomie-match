@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import math
+from collections import defaultdict
+from datetime import datetime
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -15,6 +19,7 @@ from app.features.rooms.schemas.post import (
 )
 from app.features.rooms.schemas.search import PostSearchFilter
 from app.features.users.models.profile import Profile
+from app.features.landlord.models import PostInteraction
 from app.shared.pagination.paginator import PageParams, total_pages
 
 
@@ -27,9 +32,11 @@ class PostService:
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
 
-        params = PageParams(page=page, page_size=page_size)
         total = self._posts.count_search(filters)
-        rows = self._posts.search_active(params, filters)
+        all_rows = self._posts.search_active(PageParams(page=1, page_size=max(total, 1)), filters)
+        ranked_rows = self._rank_featured_posts(all_rows)
+        offset = (page - 1) * page_size
+        rows = ranked_rows[offset:offset + page_size]
 
         items: list[PostCardOut] = []
         for post, room, thumbnail in rows:
@@ -37,7 +44,9 @@ class PostService:
                 PostCardOut(
                     post_id=post.id,
                     room_id=room.id,
-                    title=room.title,
+                    room_code=room.room_code,
+                    title=post.title or room.title,
+                    description=post.description if post.description is not None else room.description,
                     thumbnail=thumbnail,
                     price=room.price,
                     room_type=room.room_type,
@@ -45,7 +54,10 @@ class PostService:
                     district=room.district,
                     ward=room.ward,
                     created_at=post.created_at,
-                    is_vip=post.is_vip,
+                    is_vip=self._is_boost_active(post),
+                    boosted_at=post.boosted_at,
+                    boost_expires_at=post.boost_expires_at,
+                    boost_days_left=self._boost_days_left(post),
                     status=post.status,
                     bedroom_count=room.bedroom_count,
                 )
@@ -67,6 +79,8 @@ class PostService:
                 detail="Post not found or not active",
             )
         post, room, account = detail
+        self._db.add(PostInteraction(post_id=post.id, account_id=None, kind="view"))
+        self._db.commit()
 
         images = [
             ImageOut(id=img.id, image_url=img.image_url)
@@ -83,17 +97,23 @@ class PostService:
             account_id=account.id,
             display_name=account.username,
             avatar_url=profile.avatar_url if profile is not None else None,
-            contact_phone=room.contact_phone,
-            contact_social=room.contact_social,
+            contact_phone=None,
+            contact_social=None,
         )
 
         return PostDetailOut(
             post_id=post.id,
+            title=post.title or room.title,
+            description=post.description if post.description is not None else room.description,
             created_at=post.created_at,
-            is_vip=post.is_vip,
+            is_vip=self._is_boost_active(post),
+            boosted_at=post.boosted_at,
+            boost_expires_at=post.boost_expires_at,
+            boost_days_left=self._boost_days_left(post),
             status=post.status,
             room=RoomDetailOut(
                 room_id=room.id,
+                room_code=room.room_code,
                 title=room.title,
                 description=room.description,
                 price=room.price,
@@ -118,3 +138,60 @@ class PostService:
             amenities=amenities,
             landlord=landlord,
         )
+
+    @staticmethod
+    def _naive_utc(value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is not None:
+            return value.replace(tzinfo=None)
+        return value
+
+    @classmethod
+    def _is_boost_active(cls, post, now: datetime | None = None) -> bool:
+        now = now or datetime.utcnow()
+        expires_at = cls._naive_utc(post.boost_expires_at)
+        return bool(post.is_vip and expires_at is not None and expires_at > now)
+
+    @classmethod
+    def _boost_days_left(cls, post, now: datetime | None = None) -> int:
+        now = now or datetime.utcnow()
+        if not cls._is_boost_active(post, now):
+            return 0
+        expires_at = cls._naive_utc(post.boost_expires_at)
+        return max(0, math.ceil((expires_at - now).total_seconds() / 86400))
+
+    @classmethod
+    def _rank_featured_posts(cls, rows, now: datetime | None = None):
+        now = now or datetime.utcnow()
+        featured_by_owner = defaultdict(list)
+        regular = []
+
+        for row in rows:
+            post = row[0]
+            if cls._is_boost_active(post, now):
+                featured_by_owner[post.account_id].append(row)
+            else:
+                regular.append(row)
+
+        if not featured_by_owner:
+            return regular
+
+        for owner_rows in featured_by_owner.values():
+            owner_rows.sort(
+                key=lambda row: (cls._naive_utc(row[0].boosted_at) or datetime.min, row[0].id),
+                reverse=True,
+            )
+
+        owner_ids = sorted(featured_by_owner)
+        hour_bucket = int((now - datetime(1970, 1, 1)).total_seconds() // 3600)
+        start = hour_bucket % len(owner_ids)
+        owner_ids = owner_ids[start:] + owner_ids[:start]
+
+        featured = []
+        max_owner_posts = max(len(items) for items in featured_by_owner.values())
+        for index in range(max_owner_posts):
+            for owner_id in owner_ids:
+                owner_rows = featured_by_owner[owner_id]
+                if index < len(owner_rows):
+                    featured.append(owner_rows[index])
+
+        return featured + regular

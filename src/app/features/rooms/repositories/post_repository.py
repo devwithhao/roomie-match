@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.features.rooms.models.amenity import Amenity
@@ -34,6 +34,16 @@ class PostRepository:
                 stmt = stmt.where(Room.ward == filters.ward)
             if filters.room_type:
                 stmt = stmt.where(Room.room_type == filters.room_type)
+            if filters.keyword:
+                keyword = f"%{filters.keyword.strip()}%"
+                stmt = stmt.where(
+                    or_(
+                        Room.title.like(keyword),
+                        Room.room_code.like(keyword),
+                        Room.full_address.like(keyword),
+                        Room.street.like(keyword),
+                    )
+                )
             if filters.min_price is not None:
                 stmt = stmt.where(Room.price >= filters.min_price)
             if filters.max_price is not None:
@@ -80,6 +90,16 @@ class PostRepository:
                 stmt = stmt.where(Room.ward == filters.ward)
             if filters.room_type:
                 stmt = stmt.where(Room.room_type == filters.room_type)
+            if filters.keyword:
+                keyword = f"%{filters.keyword.strip()}%"
+                stmt = stmt.where(
+                    or_(
+                        Room.title.like(keyword),
+                        Room.room_code.like(keyword),
+                        Room.full_address.like(keyword),
+                        Room.street.like(keyword),
+                    )
+                )
             if filters.min_price is not None:
                 stmt = stmt.where(Room.price >= filters.min_price)
             if filters.max_price is not None:

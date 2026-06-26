@@ -19,6 +19,7 @@ class RentalHistoryItemOut(BaseModel):
     rental_status: str
     can_review: bool
     can_view_post: bool = True
+    my_rating: int | None = None
 
 
 class RentalHistoryListResponse(BaseModel):

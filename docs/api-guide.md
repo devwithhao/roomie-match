@@ -217,6 +217,28 @@ Request body có thể gồm:
 
 Ít nhất một trong các trường trên phải có giá trị để hệ thống tìm được purchase.
 
+### 5. Landlord workflow
+
+- `GET/POST /api/v1/landlord/verification`: xem hoặc gửi hồ sơ CCCD (multipart, gồm thông tin và ảnh trước/sau).
+- `GET /api/v1/landlord/rental-requests`: danh sách khách xác nhận thuê phòng.
+- `PATCH /api/v1/landlord/rental-requests/{id}`: chấp nhận hoặc từ chối xác nhận thuê.
+- `GET/PATCH /api/v1/landlord/notifications`: đọc thông báo nghiệp vụ.
+- `POST /api/v1/posts/{post_id}/rental-requests`: tenant gửi ngày bắt đầu và ghi chú.
+- `GET /api/v1/users/me/rental-requests`: tenant xem các yêu cầu của mình.
+- `PATCH /api/v1/users/me/rental-requests/{id}/cancel`: tenant hủy yêu cầu đang chờ.
+- `POST /api/v1/posts/{post_id}/contact-view`: tenant mở thông tin liên hệ và ghi nhận tương tác.
+
+Bài do landlord tạo có trạng thái `pending`; chỉ bài được admin chuyển sang `active` mới xuất hiện ở API public. Khi landlord chấp nhận một tenant, phòng chuyển sang `rented`, bài chuyển sang `closed` và hệ thống tạo `rental_history`.
+
+### 6. Admin moderation
+
+- `/api/v1/admin/posts`: duyệt hoặc từ chối bài đăng.
+- `/api/v1/admin/rooms`: theo dõi hoặc archive phòng.
+- `/api/v1/admin/landlord-verifications`: duyệt hoặc từ chối hồ sơ CCCD.
+- `/api/v1/admin/orders`: theo dõi giao dịch mua gói.
+
+VNPAY tạo purchase ở trạng thái `pending`. Chỉ IPN hợp lệ mới chuyển giao dịch sang `paid` và cấp entitlement; IPN lặp lại không cấp quyền lợi lần hai.
+
 ## Câu trả lời API
 
 Phần lớn endpoint trả về JSON và FastAPI sẽ hiển thị response schema trong `/docs`.

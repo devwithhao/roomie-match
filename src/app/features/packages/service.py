@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
-from app.features.packages.models import Package, Purchase, Entitlement
+from app.features.packages.models import Entitlement, Package, PackageUsageEvent, Purchase
 from app.features.packages.repositories import (
-    PackageRepository,
-    PurchaseRepository,
     EntitlementRepository,
+    PackageRepository,
+    PackageUsageEventRepository,
+    PurchaseRepository,
 )
 
 
@@ -17,18 +18,25 @@ class PackageService:
         self.package_repo = PackageRepository(db)
         self.purchase_repo = PurchaseRepository(db)
         self.entitlement_repo = EntitlementRepository(db)
+        self.usage_event_repo = PackageUsageEventRepository(db)
 
-    def get_all_packages(self) -> list[Package]:
+    def get_all_packages(self, target_role: str | None = None) -> list[Package]:
         """Get all active packages"""
-        return self.package_repo.get_all_active()
+        return self.package_repo.get_all_active(target_role=target_role)
 
     def initiate_purchase(
-        self, account_id: int, package_id: int, provider: str = "stripe"
+        self,
+        account_id: int,
+        package_id: int,
+        provider: str = "vnpay",
+        account_role: str | None = None,
     ) -> Purchase:
-        """Initiate a new purchase (mark as pending, waiting for webhook confirmation)"""
+        """Create a pending purchase. Entitlements are granted only after provider confirmation."""
         package = self.package_repo.get_by_id(package_id)
         if not package:
             raise ValueError(f"Package {package_id} not found")
+        if account_role and package.target_role not in {account_role, "all"}:
+            raise PermissionError("Package is not available for this account role")
 
         purchase = Purchase(
             account_id=account_id,
@@ -36,9 +44,10 @@ class PackageService:
             provider=provider,
             amount_cents=package.price_cents,
             currency=package.currency,
-            status="pending",  # waiting for webhook
+            status="pending",
         )
-        return self.purchase_repo.create(purchase)
+        created = self.purchase_repo.create(purchase)
+        return created
 
     def confirm_purchase(
         self, purchase_id: int, provider_payment_id: str, raw_payload: dict = None
@@ -47,6 +56,10 @@ class PackageService:
         purchase = self.purchase_repo.get_by_id(purchase_id)
         if not purchase:
             raise ValueError(f"Purchase {purchase_id} not found")
+        if purchase.status == "paid":
+            return purchase, self.entitlement_repo.get_by_source_purchase_id(purchase.id)
+        if purchase.status != "pending":
+            raise ValueError(f"Purchase {purchase_id} is not pending")
 
         # Update purchase status
         purchase.status = "paid"
@@ -59,48 +72,72 @@ class PackageService:
         if not package:
             raise ValueError(f"Package {purchase.package_id} not found")
 
-        self.entitlement_repo.delete_by_account_id(purchase.account_id)
+        return purchase, self._grant_entitlements(purchase, package)
+
+    def _grant_entitlements(self, purchase: Purchase, package: Package) -> list[Entitlement]:
+        expires_at = None
+        if package.period == "30_days":
+            expires_at = datetime.utcnow() + timedelta(days=30)
+        elif package.period == "annual":
+            expires_at = datetime.utcnow() + timedelta(days=365)
 
         entitlements = []
-
         if package.credits_match:
-            ent = Entitlement(
-                account_id=purchase.account_id,
-                feature_key="match",
-                quantity=package.credits_match,
-                source_purchase_id=purchase.id,
+            entitlements.append(
+                self.entitlement_repo.create(
+                    Entitlement(
+                        account_id=purchase.account_id,
+                        feature_key="match",
+                        quantity=package.credits_match,
+                        expires_at=expires_at,
+                        source_purchase_id=purchase.id,
+                    )
+                )
             )
-            entitlements.append(self.entitlement_repo.create(ent))
 
         if package.credits_chatbot:
-            ent = Entitlement(
-                account_id=purchase.account_id,
-                feature_key="chatbot",
-                quantity=package.credits_chatbot,
-                source_purchase_id=purchase.id,
-            )
-            entitlements.append(self.entitlement_repo.create(ent))
-
-        if package.period:
-            # Add time-based entitlements if period is defined
-            if package.period == "30_days":
-                expires_at = datetime.utcnow() + timedelta(days=30)
-            elif package.period == "annual":
-                expires_at = datetime.utcnow() + timedelta(days=365)
-            else:
-                expires_at = None
-
-            if expires_at:
-                ent = Entitlement(
-                    account_id=purchase.account_id,
-                    feature_key="active_subscription",
-                    quantity=None,  # unlimited
-                    expires_at=expires_at,
-                    source_purchase_id=purchase.id,
+            entitlements.append(
+                self.entitlement_repo.create(
+                    Entitlement(
+                        account_id=purchase.account_id,
+                        feature_key="chatbot",
+                        quantity=package.credits_chatbot,
+                        expires_at=expires_at,
+                        source_purchase_id=purchase.id,
+                    )
                 )
-                entitlements.append(self.entitlement_repo.create(ent))
+            )
 
-        return purchase, entitlements
+        features = package.features if isinstance(package.features, dict) else {}
+        for feature_key in ("posts_limit", "photo_limit", "boost_limit"):
+            quantity = features.get(feature_key)
+            if isinstance(quantity, int):
+                entitlements.append(
+                    self.entitlement_repo.create(
+                        Entitlement(
+                            account_id=purchase.account_id,
+                            feature_key=feature_key,
+                            quantity=quantity,
+                            expires_at=expires_at,
+                            source_purchase_id=purchase.id,
+                        )
+                    )
+                )
+
+        if expires_at:
+            entitlements.append(
+                self.entitlement_repo.create(
+                    Entitlement(
+                        account_id=purchase.account_id,
+                        feature_key="active_subscription",
+                        quantity=None,
+                        expires_at=expires_at,
+                        source_purchase_id=purchase.id,
+                    )
+                )
+            )
+
+        return entitlements
 
     def get_account_purchases(self, account_id: int) -> list[Purchase]:
         """Get all purchases for an account"""
@@ -121,11 +158,21 @@ class PackageService:
             return False  # expired
         return True
 
+    def has_credit(self, account_id: int, feature_key: str, amount: int = 1) -> bool:
+        if amount <= 0:
+            return True
+        quantity = self.entitlement_repo.get_available_quantity(account_id, feature_key)
+        return quantity is None or quantity >= amount
+
+    def ensure_credit(self, account_id: int, feature_key: str, amount: int = 1) -> None:
+        if not self.has_credit(account_id, feature_key, amount):
+            raise ValueError("insufficient_credit")
+
     def consume_credit(
         self, account_id: int, feature_key: str, amount: int = 1
     ) -> bool:
         """Consume credit from entitlement (returns True if successful)"""
-        entitlement = self.entitlement_repo.get_by_account_and_feature(
+        entitlement = self.entitlement_repo.get_consumable_by_account_and_feature(
             account_id, feature_key
         )
         if not entitlement:
@@ -141,3 +188,50 @@ class PackageService:
             entitlement.id, entitlement.quantity - amount
         )
         return True
+
+    def consume_credit_with_event(
+        self,
+        account_id: int,
+        feature_key: str,
+        amount: int = 1,
+        *,
+        entity_type: str | None = None,
+        entity_id: int | None = None,
+        metadata: dict | None = None,
+    ) -> PackageUsageEvent | None:
+        if amount <= 0:
+            return None
+
+        entitlement = self.entitlement_repo.get_consumable_by_account_and_feature(
+            account_id, feature_key
+        )
+        if not entitlement:
+            return None
+        if entitlement.quantity is not None and entitlement.quantity < amount:
+            return None
+
+        if entitlement.quantity is not None:
+            self.entitlement_repo.update_quantity(entitlement.id, entitlement.quantity - amount)
+
+        return self.usage_event_repo.create(
+            PackageUsageEvent(
+                account_id=account_id,
+                feature_key=feature_key,
+                amount=amount,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                source_purchase_id=entitlement.source_purchase_id,
+                metadata_json=metadata,
+            )
+        )
+
+    def boost_duration_days_for_event(self, event: PackageUsageEvent | None, default: int = 3) -> int:
+        if event is None or event.source_purchase_id is None:
+            return default
+        purchase = self.purchase_repo.get_by_id(event.source_purchase_id)
+        if purchase is None:
+            return default
+        package = self.package_repo.get_by_id(purchase.package_id)
+        features = package.features if package is not None and isinstance(package.features, dict) else {}
+        duration = features.get("boost_duration_days")
+        return duration if isinstance(duration, int) and duration > 0 else default

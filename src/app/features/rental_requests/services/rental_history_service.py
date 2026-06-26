@@ -49,10 +49,11 @@ class RentalHistoryService:
                 start_date=history.start_date,
                 end_date=history.end_date,
                 rental_status=history.status,
-                can_review=history.status in {"completed", "ended"},
-                can_view_post=True,
+                can_review=history.status == "completed",
+                can_view_post=post.status == "active",
+                my_rating=review.rating if review else None,
             )
-            for history, room, post in rows
+            for history, room, post, review in rows
         ]
 
         return RentalHistoryListResponse(

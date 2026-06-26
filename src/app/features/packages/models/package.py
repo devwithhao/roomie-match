@@ -17,14 +17,17 @@ class Package(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="vnd", nullable=False)
+    target_role: Mapped[str] = mapped_column(String(20), default="tenant", nullable=False)
     credits_match: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     credits_chatbot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     period: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True
     )  # '30_days', 'annual', etc.
+    icon: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    target_customer: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     features: Mapped[Optional[dict]] = mapped_column(
         JSON, nullable=True
-    )  # ['vip_listing', 'priority_match']
+    )  # just the list or dict
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
