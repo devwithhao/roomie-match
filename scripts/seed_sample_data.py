@@ -13,7 +13,7 @@ from app.features.chatbot.models.chat_session import ChatSession
 from app.features.matching.models.match import UserMatch
 from app.features.matching.models.preference import UserPreference
 from app.features.matching.models.reject import UserReject
-from app.features.packages.models import Entitlement, Package, Purchase
+from app.features.packages.models import Entitlement, Package, Purchase, RoleFeature
 from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.amenity import Amenity
 from app.features.rooms.models.favorite import Favorite
@@ -201,6 +201,47 @@ def get_or_create_package(
     package.active = True
     db.flush()
     return package
+
+def get_or_create_role_feature(
+    db: Session,
+    *,
+    target_role: str,
+    feature_key: str,
+    feature_name: str,
+) -> RoleFeature:
+    feature = db.scalar(
+        select(RoleFeature).where(
+            RoleFeature.target_role == target_role,
+            RoleFeature.feature_key == feature_key,
+        )
+    )
+    if feature is None:
+        feature = RoleFeature(
+            target_role=target_role,
+            feature_key=feature_key,
+            feature_name=feature_name,
+        )
+        db.add(feature)
+        db.flush()
+    else:
+        feature.feature_name = feature_name
+    return feature
+
+def create_role_feature_data(db: Session) -> None:
+    features = [
+        ("tenant", "credits_match", "Lượt kết nối phòng"),
+        ("tenant", "credits_chatbot", "Lượt hỏi Chatbot AI"),
+        ("landlord", "posts_limit", "Giới hạn bài đăng"),
+        ("landlord", "photo_limit", "Giới hạn số ảnh / bài"),
+        ("landlord", "boost_limit", "Lượt đẩy tin"),
+    ]
+    for target_role, feature_key, feature_name in features:
+        get_or_create_role_feature(
+            db,
+            target_role=target_role,
+            feature_key=feature_key,
+            feature_name=feature_name,
+        )
 
 
 def ensure_favorite(db: Session, account: Account, post: Post) -> None:
@@ -961,7 +1002,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=10,
             credits_chatbot=20,
             period="30_days",
-            features=["matching", "chatbot"],
+            features={"list": ["matching", "chatbot"]},
             icon="rocket",
             target_role="tenant",
         ),
@@ -974,7 +1015,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=40,
             credits_chatbot=80,
             period="30_days",
-            features=["matching", "chatbot", "priority_match"],
+            features={"list": ["matching", "chatbot", "priority_match"]},
             icon="star",
             target_role="tenant",
         ),
@@ -987,7 +1028,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=120,
             credits_chatbot=240,
             period="30_days",
-            features=["matching", "chatbot", "priority_match", "vip_listing"],
+            features={"list": ["matching", "chatbot", "priority_match", "vip_listing"]},
             icon="crown",
             target_role="tenant",
         ),
@@ -1136,6 +1177,7 @@ def seed() -> None:
         )
         create_engagement_data(db, tenants=tenants, rooms=rooms, posts=posts)
         create_matching_data(db, tenants=tenants)
+        create_role_feature_data(db)
         create_package_data(db, landlords=landlords, tenants=tenants)
         create_chatbot_data(db, tenants=tenants)
         db.commit()

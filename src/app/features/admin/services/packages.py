@@ -20,19 +20,19 @@ class AdminPackageService:
     def _map_to_dto(self, package: Package, total_purchased: int) -> AdminPackageOut:
         # Extract UI features list (display only)
         features_list: list[str] = []
-        if isinstance(package.features, list):
-            features_list = package.features
-        elif isinstance(package.features, dict):
-            features_list = package.features.get("list", [])
+        feature_quotas = {}
 
-        # Extract landlord quotas from features dict
-        posts_limit = 0
-        photo_limit = 0
-        boost_limit = 0
         if isinstance(package.features, dict):
-            posts_limit = package.features.get("posts_limit", 0)
-            photo_limit = package.features.get("photo_limit", 0)
-            boost_limit = package.features.get("boost_limit", 0)
+            features_list = package.features.get("list", [])
+            feature_quotas = {k: v for k, v in package.features.items() if k != "list"}
+        elif isinstance(package.features, list):
+            features_list = package.features
+
+        # Include legacy columns into quotas to be seamless
+        if getattr(package, "credits_match", None) is not None:
+            feature_quotas["credits_match"] = package.credits_match
+        if getattr(package, "credits_chatbot", None) is not None:
+            feature_quotas["credits_chatbot"] = package.credits_chatbot
 
         icon = package.icon or "file-text"
 
@@ -58,11 +58,7 @@ class AdminPackageService:
             pricePerMonth=package.price_cents,
             duration=duration,
             features=features_list,
-            credits_match=package.credits_match or 0,
-            credits_chatbot=package.credits_chatbot or 0,
-            posts_limit=posts_limit,
-            photo_limit=photo_limit,
-            boost_limit=boost_limit,
+            feature_quotas=feature_quotas,
             totalPurchased=total_purchased,
             status="active" if package.active else "suspended",
             statusLabel="Đang bán" if package.active else "Tạm ngưng",
@@ -89,17 +85,9 @@ class AdminPackageService:
         if existing:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Slug already exists")
 
-        # Build features theo target_role:
-        # - landlord: dict với quota keys để _grant_entitlements đọc
-        # - tenant/all:  list để hiển thị UI (credits cấp qua credits_match/credits_chatbot)
-        if payload.target_role == "landlord":
-            features: list | dict = {
-                "posts_limit": payload.posts_limit,
-                "photo_limit": payload.photo_limit,
-                "boost_limit": payload.boost_limit,
-            }
-        else:
-            features = payload.features_list
+        # Build dynamic features dictionary for the JSON column
+        features = payload.feature_quotas.copy() if payload.feature_quotas else {}
+        features["list"] = payload.features_list
 
         package = Package(
             name=payload.name,
@@ -111,8 +99,9 @@ class AdminPackageService:
             active=payload.active,
             target_role=payload.target_role,
             icon=payload.icon,
-            credits_match=payload.credits_match,
-            credits_chatbot=payload.credits_chatbot,
+            # Assign explicitly to backward compat columns if they are present
+            credits_match=features.pop("credits_match", 0),
+            credits_chatbot=features.pop("credits_chatbot", 0),
             features=features,
         )
         self.db.add(package)
@@ -146,23 +135,24 @@ class AdminPackageService:
             package.target_role = payload.target_role
         if payload.icon is not None:
             package.icon = payload.icon
-        if payload.credits_match is not None:
-            package.credits_match = payload.credits_match
-        if payload.credits_chatbot is not None:
-            package.credits_chatbot = payload.credits_chatbot
 
-        # Cập nhật features: nếu gói landlord và có quota mới → rebuild dict
-        effective_role = payload.target_role or package.target_role
-        quota_changed = any(v is not None for v in [payload.posts_limit, payload.photo_limit, payload.boost_limit])
-        if effective_role == "landlord" and quota_changed:
-            current = package.features if isinstance(package.features, dict) else {}
-            package.features = {
-                "posts_limit": payload.posts_limit if payload.posts_limit is not None else current.get("posts_limit", 0),
-                "photo_limit": payload.photo_limit if payload.photo_limit is not None else current.get("photo_limit", 0),
-                "boost_limit": payload.boost_limit if payload.boost_limit is not None else current.get("boost_limit", 0),
-            }
-        elif payload.features_list is not None:
-            package.features = payload.features_list
+        current_features = package.features if isinstance(package.features, dict) else {}
+        if isinstance(package.features, list):
+            current_features = {"list": package.features}
+
+        if payload.feature_quotas is not None:
+            for k, v in payload.feature_quotas.items():
+                if k == "credits_match":
+                    package.credits_match = v
+                elif k == "credits_chatbot":
+                    package.credits_chatbot = v
+                else:
+                    current_features[k] = v
+        
+        if payload.features_list is not None:
+            current_features["list"] = payload.features_list
+
+        package.features = current_features
 
         self.db.commit()
         return self._map_to_dto(package, self.get_purchases_count(package.id))

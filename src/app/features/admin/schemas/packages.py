@@ -10,12 +10,8 @@ class AdminPackageOut(BaseModel):
     pricePerMonth: int
     duration: str
     features: List[str]
-    # Entitlement quotas (hiển thị thêm thông tin)
-    credits_match: int
-    credits_chatbot: int
-    posts_limit: int
-    photo_limit: int
-    boost_limit: int
+    # Dynamic feature quotas (hiển thị thông tin)
+    feature_quotas: dict
     totalPurchased: int
     status: str
     statusLabel: str
@@ -32,14 +28,8 @@ class AdminPackageCreate(BaseModel):
     target_role: str = Field("tenant", pattern="^(tenant|landlord|all)$")
     icon: str = "file-text"
 
-    # Tenant credits (dùng khi target_role=tenant)
-    credits_match: int = 0
-    credits_chatbot: int = 0
-
-    # Landlord quotas (dùng khi target_role=landlord)
-    posts_limit: int = 0
-    photo_limit: int = 0
-    boost_limit: int = 0
+    # Dynamic feature quotas
+    feature_quotas: Optional[dict] = Field(default_factory=dict)
 
     # UI display features list
     features_list: List[str] = []
@@ -56,14 +46,8 @@ class AdminPackageUpdate(BaseModel):
     target_role: Optional[str] = Field(None, pattern="^(tenant|landlord|all)$")
     icon: Optional[str] = None
 
-    # Tenant credits
-    credits_match: Optional[int] = None
-    credits_chatbot: Optional[int] = None
-
-    # Landlord quotas
-    posts_limit: Optional[int] = None
-    photo_limit: Optional[int] = None
-    boost_limit: Optional[int] = None
+    # Dynamic feature quotas
+    feature_quotas: Optional[dict] = None
 
     # UI display features list
     features_list: Optional[List[str]] = None

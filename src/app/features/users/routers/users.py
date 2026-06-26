@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.features.users.dependencies import get_current_account
@@ -31,6 +31,28 @@ def update_my_profile(
     db: Session = Depends(get_db),
 ) -> MeProfileResponse:
     return ProfileService(db).upsert_my_profile(account, payload)
+
+
+@router.post("/me/avatar")
+def upload_avatar(
+    file: UploadFile = File(...),
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.features.landlord.image_uploader import upload_public_image
+    from app.features.users.models.profile import Profile
+    
+    url = upload_public_image(file.file, filename=file.filename, folder="avatars")
+    
+    profile = db.get(Profile, account.id)
+    if profile is None:
+        profile = Profile(account_id=account.id, avatar_url=url)
+        db.add(profile)
+    else:
+        profile.avatar_url = url
+    
+    db.commit()
+    return {"avatar_url": url}
 
 
 @router.get("/me/rental-history", response_model=RentalHistoryListResponse)
