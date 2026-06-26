@@ -26,7 +26,6 @@ class Profile(Base):
     facebook: Mapped[str | None] = mapped_column(String(255), nullable=True)
     instagram: Mapped[str | None] = mapped_column(String(255), nullable=True)
     twitter: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    zalo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
