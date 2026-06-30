@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -100,7 +101,68 @@ class AdminUserService:
         )
 
     def get_dashboard(self, current_admin: Account) -> dict:
+        from app.features.rooms.models.room import Room
+        from app.features.rooms.models.post import Post
+        from app.features.landlord.models import Notification
+        from app.features.users.models.role import Role
+        
         stats = self.get_stats()
+        
+        pending_posts_count = self._db.query(Post).filter(Post.status == "pending").count()
+        
+        # Performance mock up or real logic
+        # querying count of users/posts grouped by month for 2026. For now, keep the structure.
+        
+        # Query count of posts grouped by city for regions.
+        region_rows = self._db.query(Room.city, func.count(Post.id).label("post_count")) \
+            .join(Post, Post.room_id == Room.id) \
+            .filter(Post.status == "approved", Room.city.isnot(None)) \
+            .group_by(Room.city) \
+            .all()
+
+        regions = []
+        for r_city, r_count in region_rows:
+            city_id = r_city.lower().replace(" ", "-").replace("tỉnh", "").replace("thành phố", "").strip()
+            regions.append({
+                "id": city_id,
+                "name": r_city,
+                "value": r_count,
+                "trend": "up",
+                "trendValue": "DB"
+            })
+        
+        regions.sort(key=lambda x: x["value"], reverse=True)
+
+        # Staff
+        staff_rows = self._db.query(Account, Profile).outerjoin(Profile, Profile.account_id == Account.id) \
+            .join(Role, Role.id == Account.role_id) \
+            .filter(Role.name == "admin").all()
+        
+        staff_list = []
+        for acc, prof in staff_rows:
+            staff_list.append({
+                "id": acc.id,
+                "name": acc.username or (prof.full_name if prof else "Admin"),
+                "email": acc.email,
+                "role": "Quản trị viên",
+                "status": acc.status,
+                "avatar": None,
+                "lastActive": acc.last_login_at.isoformat() if acc.last_login_at else None
+            })
+
+        # Notifications
+        notif_rows = self._db.query(Notification).filter(Notification.account_id == current_admin.id).order_by(Notification.created_at.desc()).limit(10).all()
+        notifications = []
+        for n in notif_rows:
+            notifications.append({
+                "id": n.id,
+                "type": "system",
+                "title": n.title,
+                "message": n.message,
+                "time": n.created_at.isoformat(),
+                "unread": not bool(n.read_at)
+            })
+
         return {
             "currentUser": {
                 "name": current_admin.username or current_admin.email or "Admin",
@@ -134,13 +196,13 @@ class AdminUserService:
                     "linkLabel": "Xem chi tiết",
                 },
                 {
-                    "id": "tenants",
-                    "label": account_type_label("tenant"),
-                    "value": stats.tenants,
+                    "id": "posts",
+                    "label": "Bài đăng chờ duyệt",
+                    "value": pending_posts_count,
                     "trend": "up",
-                    "trendLabel": "DB",
-                    "changeLabel": "Tài khoản khách thuê hiện có",
-                    "icon": "users",
+                    "trendLabel": "Cần xử lý",
+                    "changeLabel": "Số lượng bài đang chờ duyệt",
+                    "icon": "file-text",
                     "linkLabel": "Xem chi tiết",
                 },
             ],
@@ -150,9 +212,9 @@ class AdminUserService:
                 "labels": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"],
                 "seriesByYear": {"2026": []},
             },
-            "staff": [],
-            "regions": [],
-            "notifications": [],
+            "staff": staff_list,
+            "regions": regions,
+            "notifications": notifications,
         }
 
     def list_users(

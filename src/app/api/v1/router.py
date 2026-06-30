@@ -16,6 +16,10 @@ from app.features.admin.routers.users import router as admin_users_router
 from app.features.admin.routers.packages import router as admin_packages_router
 from app.features.admin.routers.role_features import router as admin_role_features_router
 from app.features.admin.routers.moderation import router as admin_moderation_router
+from app.features.admin.routers.analytics import router as admin_analytics_router
+from app.features.admin.routers.orders import router as admin_orders_router
+from app.features.admin.routers.categories import router as admin_categories_router
+from app.features.admin.routers.complaints import router as admin_complaints_router
 from app.shared.routers.upload import router as upload_router
 
 api_router = APIRouter()
@@ -26,6 +30,10 @@ api_router.include_router(landlord_router, prefix="/landlord", tags=["landlord"]
 api_router.include_router(admin_packages_router, prefix="/admin/packages", tags=["admin-packages"])
 api_router.include_router(admin_role_features_router, prefix="/admin/role-features", tags=["admin-role-features"])
 api_router.include_router(admin_moderation_router, prefix="/admin", tags=["admin-moderation"])
+api_router.include_router(admin_analytics_router, prefix="/admin", tags=["admin-analytics"])
+api_router.include_router(admin_orders_router, prefix="/admin/orders", tags=["admin-orders"])
+api_router.include_router(admin_categories_router, prefix="/admin/categories", tags=["admin-categories"])
+api_router.include_router(admin_complaints_router, prefix="/admin/complaints", tags=["admin-complaints"])
 api_router.include_router(posts_router, prefix="/posts", tags=["posts"])
 api_router.include_router(reviews_router, prefix="/rooms", tags=["rooms"])
 api_router.include_router(matching_router)
