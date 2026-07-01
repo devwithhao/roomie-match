@@ -10,6 +10,7 @@ from app.features.matching.models.preference import UserPreference
 from app.features.matching.repositories.match_repository import MatchRepository
 from app.features.matching.repositories.reject_repository import RejectRepository
 from app.features.matching.schemas.schemas import MatchHistoryItem, RejectHistoryItem, MatchContact, MatchContactSocials
+from app.features.packages.service import PackageService
 
 class MatchInteractionService:
     def __init__(self, db: Session):
@@ -21,12 +22,25 @@ class MatchInteractionService:
         if current_account_id == target_account_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot match yourself.")
             
+        pkg_service = PackageService(self.db)
+        if not pkg_service.has_credit(current_account_id, "match"):
+            raise HTTPException(
+                status_code=402, 
+                detail="Bạn đã hết lượt sử dụng tính năng AI Matching. Vui lòng nâng cấp gói dịch vụ."
+            )
+        pkg_service.consume_credit_with_event(current_account_id, "match", metadata={"action": "accept_roommate"})
+            
         match = self.matches.get_match(current_account_id, target_account_id)
         if not match:
             match = self.matches.create_match_obj(current_account_id, target_account_id)
             
         match.is_matched = True
         self.matches.update(match)
+        
+        reject = self.rejects.get_reject(current_account_id, target_account_id)
+        if reject:
+            self.db.delete(reject)
+            
         self.db.commit()
         
         return {"detail": "Match accepted successfully."}
@@ -50,7 +64,13 @@ class MatchInteractionService:
         if not reject:
             reject = UserReject(account_id=current_account_id, rejected_account_id=target_account_id)
             self.rejects.update(reject)
-            self.db.commit()
+            
+        match = self.matches.get_match(current_account_id, target_account_id)
+        if match:
+            match.is_matched = False
+            self.matches.update(match)
+            
+        self.db.commit()
             
         return {"detail": "User rejected successfully."}
 
@@ -66,7 +86,11 @@ class MatchInteractionService:
                 contact = MatchContact(
                     email=account.email or "",
                     phone=profile.phone or "",
-                    socials=MatchContactSocials()
+                    socials=MatchContactSocials(
+                        facebook=getattr(profile, "facebook", None) or "",
+                        instagram=getattr(profile, "instagram", None) or "",
+                        twitter=getattr(profile, "twitter", None) or ""
+                    )
                 )
                 joined_at = profile.created_at.strftime("%d/%m/%Y") if profile.created_at else ""
                 area_val = ""
@@ -100,7 +124,11 @@ class MatchInteractionService:
                 contact = MatchContact(
                     email=account.email or "",
                     phone=profile.phone or "",
-                    socials=MatchContactSocials()
+                    socials=MatchContactSocials(
+                        facebook=getattr(profile, "facebook", None) or "",
+                        instagram=getattr(profile, "instagram", None) or "",
+                        twitter=getattr(profile, "twitter", None) or ""
+                    )
                 )
                 joined_at = profile.created_at.strftime("%d/%m/%Y") if profile.created_at else ""
                 area_val = ""

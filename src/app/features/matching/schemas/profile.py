@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
+from datetime import datetime
 
 
 class CreateMatchingProfileRequest(BaseModel):
@@ -16,6 +17,8 @@ class MatchingProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     account_id: int
+    full_name: str | None = None
+    created_at: datetime | None = None
     email: str | None = None
     phone: str | None = None
     facebook: str | None = None

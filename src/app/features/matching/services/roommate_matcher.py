@@ -9,6 +9,7 @@ from app.features.matching.models.match import UserMatch
 from app.features.matching.models.reject import UserReject
 from app.features.users.models.profile import Profile
 from app.features.users.models.account import Account
+from app.features.packages.service import PackageService
 from app.features.matching.schemas.schemas import RoommateMatchResult, MatchContact, MatchContactSocials
 
 class RoommateMatcherService:
@@ -65,17 +66,22 @@ class RoommateMatcherService:
             score = 0.0
             matched_criteria = []
             
-            # Budget similarity (50%)
-            score += 50
-            matched_criteria.append("Budget (50/50)")
+            # Budget similarity
+            score += 40
+            matched_criteria.append(f"Ngân sách: {pref.budget_min//1000}k - {pref.budget_max//1000}k")
+            
+            # District match
+            if current_pref.target_district and pref.target_district and current_pref.target_district == pref.target_district:
+                score += 20
+                matched_criteria.append(f"Khu vực: {pref.target_district}")
                 
-            # Habits match (50%)
+            # Habits match
             if current_pref.habit and pref.habit:
                 common_habits = set(current_pref.habit).intersection(set(pref.habit))
                 if common_habits:
-                    habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 50
+                    habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 40
                     score += habit_score
-                    matched_criteria.append(f"Habits ({round(habit_score, 1)}/50)")
+                    matched_criteria.append(f"Thói quen chung: {', '.join(common_habits)}")
                 
             # Only consider if score > 0 to save processing
             if score > 0:
@@ -86,7 +92,11 @@ class RoommateMatcherService:
                     contact = MatchContact(
                         email=account.email or "",
                         phone=profile.phone or "",
-                        socials=MatchContactSocials()
+                        socials=MatchContactSocials(
+                            facebook=getattr(profile, "facebook", None) or "",
+                            instagram=getattr(profile, "instagram", None) or "",
+                            twitter=getattr(profile, "twitter", None) or ""
+                        )
                     )
                     joined_at = profile.created_at.strftime("%d/%m/%Y") if profile.created_at else ""
                     area_val = pref.target_district or pref.target_city or ""
@@ -113,7 +123,7 @@ class RoommateMatcherService:
         current_pref = self.db.scalar(select(UserPreference).where(UserPreference.account_id == current_account_id))
         if not current_pref:
             return []
-            
+
         matches = self.match_roommates(current_account_id)
         suggested_ids = [m.account_id for m in matches[:10]]
         
@@ -178,20 +188,28 @@ class RoommateMatcherService:
             
             if not (current_pref.budget_min and pref.budget_max and current_pref.budget_min > pref.budget_max) and \
                not (current_pref.budget_max and pref.budget_min and current_pref.budget_max < pref.budget_min):
-                score += 50
-                matched_criteria.append("Budget (50/50)")
+                score += 40
+                matched_criteria.append(f"Ngân sách: {pref.budget_min//1000}k - {pref.budget_max//1000}k")
                 
+                if current_pref.target_district and pref.target_district and current_pref.target_district == pref.target_district:
+                    score += 20
+                    matched_criteria.append(f"Khu vực: {pref.target_district}")
+                    
                 if current_pref.habit and pref.habit:
                     common_habits = set(current_pref.habit).intersection(set(pref.habit))
                     if common_habits:
-                        habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 50
+                        habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 40
                         score += habit_score
-                        matched_criteria.append(f"Habits ({round(habit_score, 1)}/50)")
+                        matched_criteria.append(f"Thói quen chung: {', '.join(common_habits)}")
                         
             contact = MatchContact(
                 email=account.email or "",
                 phone=profile.phone or "",
-                socials=MatchContactSocials()
+                socials=MatchContactSocials(
+                    facebook=getattr(profile, "facebook", None) or "",
+                    instagram=getattr(profile, "instagram", None) or "",
+                    twitter=getattr(profile, "twitter", None) or ""
+                )
             )
             joined_at = profile.created_at.strftime("%d/%m/%Y") if profile.created_at else ""
             area_val = pref.target_district or pref.target_city or ""

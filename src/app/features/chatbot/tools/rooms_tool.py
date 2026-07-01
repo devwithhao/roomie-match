@@ -7,19 +7,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.features.rooms.models.room import Room
+from app.features.rooms.models.post import Post
+from app.features.rooms.models.room_image import RoomImage
 
 
 class RoomSearchInput(BaseModel):
     district: Optional[str] = Field(
-        default=None,
+        default="",
         description="One district name only, for example 'Binh Thanh' or 'Thu Duc'.",
     )
     max_price: Optional[str] = Field(
-        default=None,
+        default="",
         description="Maximum budget in VND, for example '4000000' or '5000000'.",
     )
     room_type: Optional[str] = Field(
-        default=None,
+        default="",
         description="Room type, for example 'phong tro', 'ky tuc xa', 'can ho', or 'studio'.",
     )
 
@@ -32,7 +34,23 @@ def get_room_search_tool(db: Session) -> StructuredTool:
     ) -> str:
         """Search available rooms from the database and return compact JSON."""
         try:
-            query = select(Room).where(Room.status == "available")
+            # Subquery for thumbnail
+            thumbnail_subq = (
+                select(RoomImage.image_url)
+                .where(RoomImage.room_id == Room.id)
+                .order_by(RoomImage.id.asc())
+                .limit(1)
+                .correlate(Room)
+                .scalar_subquery()
+                .label("thumbnail")
+            )
+
+            query = (
+                select(Post, Room, thumbnail_subq)
+                .join(Room, Post.room_id == Room.id)
+                .where(Post.status == "active")
+                .where(Room.status == "available")
+            )
 
             if district:
                 clean_district = district.split(" ho")[0].split(" hay")[0].strip()
@@ -42,9 +60,9 @@ def get_room_search_tool(db: Session) -> StructuredTool:
             if room_type:
                 query = query.where(Room.room_type.ilike(f"%{room_type}%"))
 
-            rooms = db.scalars(query.limit(5)).all()
+            rows = db.execute(query.limit(5)).all()
 
-            if not rooms:
+            if not rows:
                 return json.dumps(
                     {
                         "message": "No matching rooms found. Tell the user the system has no available rooms for these criteria.",
@@ -54,16 +72,14 @@ def get_room_search_tool(db: Session) -> StructuredTool:
                 )
 
             rooms_data = []
-            for room in rooms:
+            for post, room, thumbnail in rows:
                 address = room.full_address or f"{room.district}, {room.city}"
-                thumbnail = None
-                if hasattr(room, "images") and room.images:
-                    thumbnail = room.images[0].image_url
 
                 rooms_data.append(
                     {
-                        "id": room.id,
-                        "title": room.title,
+                        "id": post.id,
+                        "room_id": room.id,
+                        "title": post.title or room.title,
                         "price": room.price,
                         "thumbnail": thumbnail or "https://via.placeholder.com/150",
                         "address": address,

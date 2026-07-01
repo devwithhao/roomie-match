@@ -27,11 +27,11 @@ class PostRepository:
         if filters:
             stmt = stmt.join(Room, Post.room_id == Room.id)
             if filters.city:
-                stmt = stmt.where(Room.city == filters.city)
+                stmt = stmt.where(Room.city.ilike(f"%{filters.city.strip()}%"))
             if filters.district:
-                stmt = stmt.where(Room.district == filters.district)
+                stmt = stmt.where(Room.district.ilike(f"%{filters.district.strip()}%"))
             if filters.ward:
-                stmt = stmt.where(Room.ward == filters.ward)
+                stmt = stmt.where(Room.ward.ilike(f"%{filters.ward.strip()}%"))
             if filters.room_type:
                 stmt = stmt.where(Room.room_type == filters.room_type)
             if filters.keyword:
@@ -83,11 +83,11 @@ class PostRepository:
 
         if filters:
             if filters.city:
-                stmt = stmt.where(Room.city == filters.city)
+                stmt = stmt.where(Room.city.ilike(f"%{filters.city.strip()}%"))
             if filters.district:
-                stmt = stmt.where(Room.district == filters.district)
+                stmt = stmt.where(Room.district.ilike(f"%{filters.district.strip()}%"))
             if filters.ward:
-                stmt = stmt.where(Room.ward == filters.ward)
+                stmt = stmt.where(Room.ward.ilike(f"%{filters.ward.strip()}%"))
             if filters.room_type:
                 stmt = stmt.where(Room.room_type == filters.room_type)
             if filters.keyword:

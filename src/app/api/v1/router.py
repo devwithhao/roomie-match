@@ -12,6 +12,7 @@ from app.features.rooms.routers.posts import router as posts_router
 from app.features.rooms.routers.reviews import router as reviews_router
 from app.features.users.routers.auth import router as auth_router
 from app.features.users.routers.users import router as users_router
+from app.features.users.routers.contact import router as contact_router
 from app.features.admin.routers.users import router as admin_users_router
 from app.features.admin.routers.packages import router as admin_packages_router
 from app.features.admin.routers.role_features import router as admin_role_features_router
@@ -25,6 +26,7 @@ from app.shared.routers.upload import router as upload_router
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(users_router, prefix="/users", tags=["users"])
+api_router.include_router(contact_router, prefix="/contact", tags=["contact"])
 api_router.include_router(admin_users_router, prefix="/admin", tags=["admin-users"])
 api_router.include_router(landlord_router, prefix="/landlord", tags=["landlord"])
 api_router.include_router(admin_packages_router, prefix="/admin/packages", tags=["admin-packages"])

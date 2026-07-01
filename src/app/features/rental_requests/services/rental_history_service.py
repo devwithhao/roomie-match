@@ -43,17 +43,19 @@ class RentalHistoryService:
                 rental_id=history.id,
                 post_id=post.id,
                 room_id=room.id,
-                title=room.title,
+                title=post.title or room.title,
                 full_address=room.full_address,
                 price=room.price,
+                thumbnail=thumbnail,
                 start_date=history.start_date,
                 end_date=history.end_date,
                 rental_status=history.status,
-                can_review=history.status == "completed",
+                # can_review: cả 'active' lẫn 'completed' đều được phép đánh giá
+                can_review=history.status in ("active", "completed", "ended"),
                 can_view_post=post.status == "active",
                 my_rating=review.rating if review else None,
             )
-            for history, room, post, review in rows
+            for history, room, post, review, thumbnail in rows
         ]
 
         return RentalHistoryListResponse(

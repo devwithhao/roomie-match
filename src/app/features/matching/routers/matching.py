@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 # Assuming there is a dependency for getting current user (if auth is needed)
 # from app.api.dependencies.auth import get_current_user
+from app.features.packages.service import PackageService
 
 from app.features.matching.schemas.schemas import (
     RoomMatchRequest,
@@ -36,6 +37,14 @@ def match_rooms(
     """
     Find best matching rooms based on user preference profile.
     """
+    pkg_service = PackageService(db)
+    if not pkg_service.has_credit(account.id, "match"):
+        raise HTTPException(
+            status_code=402, 
+            detail="Bạn đã hết lượt sử dụng tính năng AI Matching. Vui lòng nâng cấp gói dịch vụ."
+        )
+    pkg_service.consume_credit_with_event(account.id, "match", metadata={"action": "match_rooms"})
+
     service = RoomMatcherService(db)
     results = service.match_rooms(account.id, request)
     return RoomMatchResponse(results=results)
@@ -48,6 +57,14 @@ def match_roommates(
     """
     Find best matching roommates based on user preference profile.
     """
+    pkg_service = PackageService(db)
+    if not pkg_service.has_credit(account.id, "match"):
+        raise HTTPException(
+            status_code=402, 
+            detail="Bạn đã hết lượt sử dụng tính năng AI Matching. Vui lòng nâng cấp gói dịch vụ."
+        )
+    pkg_service.consume_credit_with_event(account.id, "match", metadata={"action": "match_roommates"})
+
     service = RoommateMatcherService(db)
     results = service.match_roommates(account.id)
     return RoommateMatchResponse(results=results)

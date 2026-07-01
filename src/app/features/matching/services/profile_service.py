@@ -103,6 +103,8 @@ class MatchingProfileService:
 
         return MatchingProfileResponse(
             account_id=account.id,
+            full_name=profile.full_name if profile else None,
+            created_at=profile.created_at if profile else None,
             email=account.email,
             phone=profile.phone if profile else None,
             facebook=profile.facebook if profile else None,
@@ -130,6 +132,8 @@ class MatchingProfileService:
         
         return MatchingProfileResponse(
             account_id=account_id,
+            full_name=profile.full_name if profile else None,
+            created_at=profile.created_at if profile else None,
             email=account.email if account else None,
             phone=profile.phone if profile else None,
             facebook=profile.facebook if profile else None,

@@ -20,12 +20,13 @@ class ChatbotService:
             api_key=settings.groq_api_key
         )
         self.system_prompt = SystemMessage(
-            content="""You are Roomie, a friendly room-rental advisor for Roomie Match.
-1. Be warm, concise, and helpful.
-2. When the user asks to find rooms, always use the room search tool and base the reply on tool results.
-3. If the tool returns rooms, briefly tell the user that matching rooms were found; do not list full details because the frontend renders cards.
-4. If the tool returns no rooms, say that no rooms match the criteria and suggest changing filters.
-5. Never invent room data.
+            content="""You are Roomie, a friendly and intelligent assistant for RommieMatch (a room rental and roommate matching platform).
+1. Be warm, concise, and helpful. Answer in Vietnamese.
+2. Room Search: When the user asks to find rooms (e.g., specific budget, district, room type), ALWAYS call the `search_available_rooms` function. If it returns rooms, briefly say matching rooms were found (do NOT list details). If no rooms match, suggest changing criteria.
+3. Roommate Search: When the user asks to find a roommate (tìm bạn cùng phòng), DO NOT call any functions. Briefly guide them to use the "Tìm bạn" feature on the main navigation menu of the website. Explain that AI Matching will automatically calculate compatibility and suggest the best roommates for them.
+4. General Knowledge: You can answer general questions about renting rooms, giving advice on how to find a good roommate, explaining how RommieMatch works. Use your internal knowledge.
+5. Never invent fake room or roommate listings. If you don't use the tools, do not provide fake data.
+6. IMPORTANT: You are interacting with a system that supports native tool calling. Do NOT output raw JSON or `<function>` tags in your text response. Simply use your native function calling feature to invoke the tools.
 """
         )
 
@@ -65,7 +66,9 @@ class ChatbotService:
             elif msg.role == "assistant":
                 langchain_messages.append(AIMessage(content=content_str))
                 
-        tools = [get_room_search_tool(self.db)]
+        tools = [
+            get_room_search_tool(self.db)
+        ]
         agent = create_react_agent(self.llm, tools=tools, prompt=self.system_prompt)
         
         response = agent.invoke({"messages": langchain_messages})
@@ -81,6 +84,7 @@ class ChatbotService:
         
         # Extract room data from the room-search tool result, if present.
         rooms_data = None
+        profiles_data = None
         for msg in reversed(response["messages"]):
             if getattr(msg, "type", "") == "tool" and getattr(msg, "name", "") == "search_available_rooms":
                 try:
@@ -90,12 +94,12 @@ class ChatbotService:
                             rooms_data = tool_data["rooms_data"]
                 except Exception:
                     pass
-                break
         
-        if rooms_data is not None:
-            final_content = json.dumps({"content": ai_reply, "rooms_data": rooms_data}, ensure_ascii=False)
-        else:
-            final_content = json.dumps({"content": ai_reply, "rooms_data": []}, ensure_ascii=False)
+        final_content_dict = {
+            "content": ai_reply,
+            "rooms_data": rooms_data or []
+        }
+        final_content = json.dumps(final_content_dict, ensure_ascii=False)
 
         self.repo.add_message(session_id=session_id, role="assistant", content=final_content)
         

@@ -67,8 +67,8 @@ class FavoriteService:
         total = self._favorites.count_saved_posts(account.id)
         rows = self._favorites.list_saved_posts(account.id, limit=limit, offset=offset)
         items = [
-            self._build_saved_post_out(post, room, saved_at)
-            for post, room, saved_at in rows
+            self._build_saved_post_out(post, room, saved_at, thumbnail)
+            for post, room, saved_at, thumbnail in rows
         ]
         return SavedPostListResponse(
             items=items,
@@ -105,13 +105,14 @@ class FavoriteService:
                 detail="Only tenant accounts can save rooms",
             )
 
-    def _build_saved_post_out(self, post: Post, room: Room, saved_at) -> SavedPostOut:
+    def _build_saved_post_out(self, post: Post, room: Room, saved_at, thumbnail: str | None) -> SavedPostOut:
         return SavedPostOut(
             post_id=post.id,
             room_id=room.id,
             title=post.title or room.title,
             full_address=room.full_address,
             price=room.price,
+            thumbnail=thumbnail,
             post_status=post.status,
             is_vip=post.is_vip,
             status=room.status,

@@ -5,6 +5,7 @@ from typing import List
 from app.database.session import get_db
 from app.features.users.dependencies import get_current_account
 from app.features.users.models.account import Account
+from app.features.packages.service import PackageService
 from app.features.chatbot.schemas.chat import (
     ChatSessionResponse,
     ChatSessionCreate,
@@ -63,6 +64,14 @@ def send_chat_message(
     db: Session = Depends(get_db),
     current_account: Account = Depends(get_current_account),
 ):
+    pkg_service = PackageService(db)
+    if not pkg_service.has_credit(current_account.id, "chatbot"):
+        raise HTTPException(
+            status_code=402, 
+            detail="Bạn đã hết lượt sử dụng Chatbot AI. Vui lòng nâng cấp gói dịch vụ."
+        )
+    pkg_service.consume_credit_with_event(current_account.id, "chatbot", metadata={"session_id": session_id})
+
     service = ChatbotService(db)
     service.process_chat(
         user_id=current_account.id, session_id=session_id, text=request.content
