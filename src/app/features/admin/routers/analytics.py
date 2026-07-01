@@ -116,6 +116,7 @@ def get_analytics(
             "labels": ['Đã giải quyết', 'Đang xử lý', 'Chưa giải quyết'],
             "points": [0, 0, 0],
             "colors": ['#22c55e', '#f59e0b', '#f43f5e']
-        }
+        },
+        "totalRooms": db.query(Room).count()
     }
 

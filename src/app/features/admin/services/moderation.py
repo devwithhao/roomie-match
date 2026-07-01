@@ -43,7 +43,7 @@ class AdminModerationService:
             room_id = room.id if room else post.room_id
             room_title = room.title if room else None
             room_description = room.description if room else None
-            result.append({"id": post.id, "post_id": post.id, "room_id": room_id, "title": post.title or room_title or f"Post #{post.id}", "description": post.description or room_description, "author": profile.full_name if profile else (account.username or account.email), "author_account_id": account.id, "author_username": account.username, "author_email": account.email, "created_at": post.created_at, "status": "approved" if post.status == "active" else post.status, "raw_status": post.status, "moderation_reason": post.moderation_reason, "views": views, "likes": likes, "comments": 0, "isFeatured": bool(post.is_vip and post.boost_expires_at and post.boost_expires_at > datetime.utcnow())})
+            result.append({"id": post.id, "post_id": post.id, "room_id": room_id, "title": room_title or post.title or f"Post #{post.id}", "description": post.description or room_description, "author": profile.full_name if profile else (account.username or account.email), "author_account_id": account.id, "author_username": account.username, "author_email": account.email, "created_at": post.created_at, "status": "approved" if post.status == "active" else post.status, "raw_status": post.status, "moderation_reason": post.moderation_reason, "views": views, "likes": likes, "comments": 0, "isFeatured": bool(post.is_vip and post.boost_expires_at and post.boost_expires_at > datetime.utcnow())})
         return result
 
     def moderate_post(self, admin: Account, post_id: int, payload: PostModerationUpdate) -> dict:
@@ -68,7 +68,7 @@ class AdminModerationService:
         if status_filter:
             stmt = stmt.where(Room.status == status_filter)
         rows = self.db.execute(stmt.order_by(Room.created_at.desc())).all()
-        return [{"id": room.id, "code": room.room_code, "area": room.full_address or room.city or "Chưa cập nhật", "owner": profile.full_name if profile else (account.username or account.email), "status": room.status, "statusLabel": {"available": "Trống", "rented": "Đang thuê", "archived": "Tạm ngưng"}.get(room.status, room.status), "capacity": room.max_people or 1, "roomType": room.room_type, "roomTypeLabel": room.room_type or "Phòng trọ", "totalRooms": 1} for room, account, profile in rows]
+        return [{"id": room.id, "title": room.title, "code": room.room_code, "area": room.full_address or room.city or "Chưa cập nhật", "owner": profile.full_name if profile else (account.username or account.email), "status": room.status, "statusLabel": {"available": "Trống", "rented": "Đang thuê", "archived": "Tạm ngưng"}.get(room.status, room.status), "capacity": room.max_people or 1, "roomType": room.room_type, "roomTypeLabel": room.room_type or "Phòng trọ", "totalRooms": 1} for room, account, profile in rows]
 
     def moderate_room(self, room_id: int, payload: RoomModerationUpdate) -> dict:
         room = self.db.get(Room, room_id)

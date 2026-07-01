@@ -1022,7 +1022,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=10,
             credits_chatbot=20,
             period="30_days",
-            features={"list": ["matching", "chatbot"]},
+            features={"list": ["10 lượt ghép phòng", "20 lượt hỏi Chatbot AI", "Tìm phòng nhanh chóng"]},
             icon="rocket",
             target_role="tenant",
         ),
@@ -1035,7 +1035,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=40,
             credits_chatbot=80,
             period="30_days",
-            features={"list": ["matching", "chatbot", "priority_match"]},
+            features={"list": ["40 lượt ghép phòng", "80 lượt hỏi Chatbot AI", "Ưu tiên hiển thị matching"]},
             icon="star",
             target_role="tenant",
         ),
@@ -1048,7 +1048,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=120,
             credits_chatbot=240,
             period="30_days",
-            features={"list": ["matching", "chatbot", "priority_match", "vip_listing"]},
+            features={"list": ["120 lượt ghép phòng", "240 lượt hỏi Chatbot AI", "Ưu tiên ghép phòng", "Hỗ trợ 24/7"]},
             icon="crown",
             target_role="tenant",
         ),
@@ -1069,7 +1069,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=0,
             credits_chatbot=0,
             period="30_days",
-            features={"posts_limit": 3, "photo_limit": 15, "boost_limit": 0},
+            features={"posts_limit": 3, "photo_limit": 15, "boost_limit": 0, "list": ["3 bài đăng / tháng", "15 ảnh upload / bài"]},
             icon="home",
             target_role="landlord",
         ),
@@ -1082,7 +1082,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=0,
             credits_chatbot=0,
             period="30_days",
-            features={"posts_limit": 30, "photo_limit": 60, "boost_limit": 5},
+            features={"posts_limit": 30, "photo_limit": 60, "boost_limit": 5, "list": ["30 bài đăng / tháng", "60 ảnh upload / bài", "5 lượt đẩy tin nổi bật"]},
             icon="zap",
             target_role="landlord",
         ),
@@ -1095,7 +1095,7 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
             credits_match=0,
             credits_chatbot=0,
             period="30_days",
-            features={"posts_limit": 100, "photo_limit": 150, "boost_limit": 20},
+            features={"posts_limit": 100, "photo_limit": 150, "boost_limit": 20, "list": ["100 bài đăng / tháng", "150 ảnh upload / bài", "20 lượt đẩy tin nổi bật"]},
             icon="shield",
             target_role="landlord",
         ),
@@ -1154,6 +1154,8 @@ def create_package_data(db: Session, *, landlords: list[Account], tenants: list[
 
     # Cấp entitlement posts_limit/photo_limit/boost_limit cho landlord[0]
     for feature_key, quantity in landlord_packages[1].features.items():
+        if feature_key == "list":
+            continue
         ensure_entitlement(db, account=landlords[0], feature_key=feature_key, quantity=quantity, source_purchase=landlord_purchase_pro, expires_at=expires_at)
     ensure_entitlement(db, account=landlords[0], feature_key="active_subscription", quantity=None, source_purchase=landlord_purchase_pro, expires_at=expires_at)
 

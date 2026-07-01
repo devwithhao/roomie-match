@@ -113,11 +113,12 @@ class AdminUserService:
         # Performance mock up or real logic
         # querying count of users/posts grouped by month for 2026. For now, keep the structure.
         
-        # Query count of posts grouped by city for regions.
-        region_rows = self._db.query(Room.city, func.count(Post.id).label("post_count")) \
-            .join(Post, Post.room_id == Room.id) \
-            .filter(Post.status == "approved", Room.city.isnot(None)) \
-            .group_by(Room.city) \
+        location_expr = func.coalesce(func.nullif(Room.city, ""), func.nullif(Room.district, ""))
+        
+        # Query count of rooms grouped by city or district for regions.
+        region_rows = self._db.query(location_expr, func.count(Room.id).label("room_count")) \
+            .filter(Room.status != "archived", location_expr.isnot(None)) \
+            .group_by(location_expr) \
             .all()
 
         regions = []
@@ -126,12 +127,11 @@ class AdminUserService:
             regions.append({
                 "id": city_id,
                 "name": r_city,
-                "value": r_count,
-                "trend": "up",
-                "trendValue": "DB"
+                "count": r_count,
+                "icon": "map-pin",
             })
         
-        regions.sort(key=lambda x: x["value"], reverse=True)
+        regions.sort(key=lambda x: x["count"], reverse=True)
 
         # Staff
         staff_rows = self._db.query(Account, Profile).outerjoin(Profile, Profile.account_id == Account.id) \
@@ -180,7 +180,6 @@ class AdminUserService:
                     "value": stats.total_users,
                     "trend": "up",
                     "trendLabel": "DB",
-                    "changeLabel": "Dữ liệu từ cơ sở dữ liệu",
                     "icon": "users",
                     "linkLabel": "Xem chi tiết",
                     "isPrimary": True,
