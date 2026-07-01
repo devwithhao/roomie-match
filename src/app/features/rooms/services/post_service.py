@@ -6,6 +6,7 @@ from datetime import datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 
 from app.features.rooms.repositories.post_repository import PostRepository
 from app.features.rooms.schemas.post import (
@@ -101,6 +102,13 @@ class PostService:
             contact_social=None,
         )
 
+        views_count = self._db.scalar(
+            select(func.count(PostInteraction.id)).where(
+                PostInteraction.post_id == post.id,
+                PostInteraction.kind == "view"
+            )
+        ) or 0
+
         return PostDetailOut(
             post_id=post.id,
             title=post.title or room.title,
@@ -111,6 +119,7 @@ class PostService:
             boost_expires_at=post.boost_expires_at,
             boost_days_left=self._boost_days_left(post),
             status=post.status,
+            views_count=views_count,
             room=RoomDetailOut(
                 room_id=room.id,
                 room_code=room.room_code,

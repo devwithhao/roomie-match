@@ -172,20 +172,36 @@ class AuthService:
             import urllib3
             import requests as req
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            session = req.Session()
-            session.verify = False
-            request_adapter = requests.Request(session=session)
             
-            idinfo = id_token.verify_oauth2_token(
-                data.id_token, 
+            if data.access_token:
+                response = req.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {data.access_token}"},
+                    verify=False
+                )
+                if response.status_code != 200:
+                    raise HTTPException(status_code=400, detail="Invalid access token")
+                idinfo = response.json()
+            elif data.id_token:
+                session = req.Session()
+                session.verify = False
+                request_adapter = requests.Request(session=session)
+                
+                idinfo = id_token.verify_oauth2_token(
+                    data.id_token, 
                 request_adapter, 
                 settings.google_client_id,
                 clock_skew_in_seconds=60
             )
+            else:
+                raise HTTPException(status_code=400, detail="No token provided")
         except Exception as e:
-            import jwt
-            logging.getLogger(__name__).warning("Bypassing Google token verification due to error or SSL issue: %s", e)
-            idinfo = jwt.decode(data.id_token, options={"verify_signature": False})
+            if data.id_token:
+                import jwt
+                logging.getLogger(__name__).warning("Bypassing Google token verification due to error or SSL issue: %s", e)
+                idinfo = jwt.decode(data.id_token, options={"verify_signature": False})
+            else:
+                raise HTTPException(status_code=400, detail="Invalid Google login request")
 
 
         email = _normalize_email(idinfo.get("email", ""))

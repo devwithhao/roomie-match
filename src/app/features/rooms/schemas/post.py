@@ -93,6 +93,7 @@ class PostDetailOut(BaseModel):
     boost_expires_at: datetime | None = None
     boost_days_left: int = 0
     status: str
+    views_count: int = 0
     room: RoomDetailOut
     images: list[ImageOut]
     amenities: list[AmenityOut]
