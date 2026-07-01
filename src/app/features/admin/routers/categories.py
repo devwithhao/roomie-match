@@ -5,6 +5,7 @@ from app.database.session import get_db
 from app.features.admin.dependencies import require_admin_account
 from app.features.users.models.account import Account
 from app.features.rooms.models.amenity import Amenity
+from app.features.rooms.models.room_type import RoomType
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -45,10 +46,17 @@ def list_categories(
             ]
         }
     elif tab == "roomType":
+        room_types = db.query(RoomType).all()
         return {
             "items": [
-                { "id": 'CAT_RT01', "name": 'Phòng đơn', "priceRange": '1.5M - 4.5M ₫', "creator": 'admin', "quantity": 654, "icon": 'building' },
-                { "id": 'CAT_RT02', "name": 'Căn hộ', "priceRange": '5M - 15M ₫', "creator": 'admin', "quantity": 320, "icon": 'building' },
+                {
+                    "id": f"CAT_RT{rt.id:02d}",
+                    "name": rt.name,
+                    "priceRange": "N/A",
+                    "creator": "admin",
+                    "quantity": 0,
+                    "icon": rt.icon_name if hasattr(rt, "icon_name") else "building"
+                } for rt in room_types
             ]
         }
     return {"items": []}
@@ -63,6 +71,10 @@ def create_category(
         amenity = Amenity(name=payload.name, icon_name=payload.icon)
         db.add(amenity)
         db.commit()
+    elif payload.tab == "roomType":
+        room_type = RoomType(name=payload.name, icon_name=payload.icon)
+        db.add(room_type)
+        db.commit()
     return {"status": "success"}
 
 @router.delete("/{category_id}")
@@ -76,5 +88,11 @@ def delete_category(
         amenity = db.query(Amenity).filter(Amenity.id == actual_id).first()
         if amenity:
             db.delete(amenity)
+            db.commit()
+    elif category_id.startswith("CAT_RT"):
+        actual_id = int(category_id.replace("CAT_RT", ""))
+        room_type = db.query(RoomType).filter(RoomType.id == actual_id).first()
+        if room_type:
+            db.delete(room_type)
             db.commit()
     return {"status": "success"}

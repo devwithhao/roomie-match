@@ -6,10 +6,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database.base import Base
 
 
-class Amenity(Base):
-    __tablename__ = "amenities"
+class RoomType(Base):
+    __tablename__ = "room_types"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     icon_name: Mapped[str | None] = mapped_column(String(50), nullable=True)

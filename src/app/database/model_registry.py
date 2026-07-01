@@ -22,6 +22,7 @@ from app.features.rooms.models.room_image import RoomImage
 from app.features.users.models.account import Account
 from app.features.users.models.profile import Profile
 from app.features.users.models.role import Role
+from app.features.rooms.models.room_type import RoomType
 
 __all__ = [
     "Account",
@@ -45,6 +46,7 @@ __all__ = [
     "Room",
     "RoomAmenity",
     "RoomImage",
+    "RoomType",
     "UserMatch",
     "UserPreference",
     "UserReject",

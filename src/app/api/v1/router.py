@@ -21,6 +21,7 @@ from app.features.admin.routers.orders import router as admin_orders_router
 from app.features.admin.routers.categories import router as admin_categories_router
 from app.features.admin.routers.complaints import router as admin_complaints_router
 from app.shared.routers.upload import router as upload_router
+from app.shared.routers.metadata import router as metadata_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -42,3 +43,4 @@ api_router.include_router(packages_webhook_router, prefix="/packages", tags=["pa
 api_router.include_router(vnpay_router, prefix="/payments/vnpay", tags=["payments"])
 api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
 api_router.include_router(upload_router, prefix="/upload", tags=["upload"])
+api_router.include_router(metadata_router, prefix="/metadata", tags=["metadata"])

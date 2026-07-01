@@ -22,6 +22,7 @@ from app.features.rooms.models.review import Review
 from app.features.rooms.models.room import Room
 from app.features.rooms.models.room_amenity import RoomAmenity
 from app.features.rooms.models.room_image import RoomImage
+from app.features.rooms.models.room_type import RoomType
 from app.features.users.models.account import Account
 from app.features.users.models.profile import Profile
 from app.features.users.models.role import Role
@@ -96,6 +97,16 @@ def get_or_create_amenity(db: Session, name: str, category: str) -> Amenity:
         amenity.category = category
     return amenity
 
+
+def get_or_create_room_type(db: Session, name: str, icon_name: str | None = None) -> RoomType:
+    rt = db.scalar(select(RoomType).where(RoomType.name == name))
+    if rt is None:
+        rt = RoomType(name=name, icon_name=icon_name)
+        db.add(rt)
+        db.flush()
+    else:
+        rt.icon_name = icon_name
+    return rt
 
 def attach_amenity(db: Session, room: Room, amenity: Amenity) -> None:
     exists = db.get(RoomAmenity, {"room_id": room.id, "amenity_id": amenity.id})
@@ -562,6 +573,15 @@ def create_amenities(db: Session) -> dict[str, Amenity]:
     ]
     return {name: get_or_create_amenity(db, name, category) for name, category in specs}
 
+def create_room_types(db: Session) -> dict[str, RoomType]:
+    specs = [
+        ("Phòng trọ", "home"),
+        ("Chung cư mini", "building"),
+        ("Ký túc xá", "users"),
+        ("Nhà nguyên căn", "home"),
+        ("Studio", "layout-dashboard"),
+    ]
+    return {name: get_or_create_room_type(db, name, icon) for name, icon in specs}
 
 def create_rooms_and_posts(
     db: Session,
@@ -572,7 +592,7 @@ def create_rooms_and_posts(
     room_specs = [
         {
             "title": "Studio sáng gần phố đi bộ Nguyễn Huệ",
-            "room_type": "studio",
+            "room_type": "Studio",
             "area": 28.0,
             "max_people": 2,
             "current_people": 0,
@@ -603,7 +623,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Phòng ban công khu D2 Bình Thạnh",
-            "room_type": "phong_tro",
+            "room_type": "Phòng trọ",
             "area": 24.0,
             "max_people": 2,
             "current_people": 1,
@@ -634,7 +654,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Căn hộ mini gần Đại học Quốc Gia",
-            "room_type": "can_ho_mini",
+            "room_type": "Chung cư mini",
             "area": 32.0,
             "max_people": 3,
             "current_people": 0,
@@ -665,7 +685,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Phòng cao cấp gần Crescent Mall Quận 7",
-            "room_type": "studio",
+            "room_type": "Studio",
             "area": 30.0,
             "max_people": 2,
             "current_people": 0,
@@ -696,7 +716,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Phòng gác lửng gần Công viên Gia Định",
-            "room_type": "phong_tro",
+            "room_type": "Phòng trọ",
             "area": 22.0,
             "max_people": 2,
             "current_people": 0,
@@ -727,7 +747,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Phòng tiện nghi gần sân bay Tân Sơn Nhất",
-            "room_type": "can_ho_mini",
+            "room_type": "Chung cư mini",
             "area": 26.0,
             "max_people": 2,
             "current_people": 0,
@@ -758,7 +778,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Phòng mới trung tâm Biên Hòa",
-            "room_type": "phong_tro",
+            "room_type": "Phòng trọ",
             "area": 25.0,
             "max_people": 2,
             "current_people": 0,
@@ -789,7 +809,7 @@ def create_rooms_and_posts(
         },
         {
             "title": "Studio gần khu công nghiệp Long Thành",
-            "room_type": "studio",
+            "room_type": "Studio",
             "area": 27.0,
             "max_people": 2,
             "current_people": 0,
@@ -1170,6 +1190,7 @@ def seed() -> None:
     try:
         _, landlords, tenants, _ = create_accounts(db)
         amenities = create_amenities(db)
+        room_types = create_room_types(db)
         rooms, posts = create_rooms_and_posts(
             db,
             landlords=landlords,

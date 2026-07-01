@@ -708,12 +708,14 @@ class LandlordService:
                 clean_names.append(clean)
 
         self._db.execute(delete(RoomAmenity).where(RoomAmenity.room_id == room_id))
-        for name in clean_names:
-            amenity = self._db.scalars(select(Amenity).where(func.lower(Amenity.name) == name.lower())).first()
-            if amenity is None:
-                amenity = Amenity(name=name, category="room")
-                self._db.add(amenity)
-                self._db.flush()
+        if not clean_names:
+            return
+
+        amenities = self._db.scalars(
+            select(Amenity).where(func.lower(Amenity.name).in_([n.lower() for n in clean_names]))
+        ).all()
+        
+        for amenity in amenities:
             self._db.add(RoomAmenity(room_id=room_id, amenity_id=amenity.id))
 
     def _add_images(self, room_id: int, image_files: Iterable[object]) -> list[RoomImage]:
@@ -906,6 +908,8 @@ class LandlordService:
 
     def _status_predicates(self, status_filter: str):
         now = datetime.utcnow()
+        if status_filter in {None, "", "all"}:
+            return []
         if status_filter == "approved":
             return [
                 Post.status == "active",
