@@ -10,6 +10,7 @@ class RoomMatchRequest(BaseModel):
     budget: Optional[int] = None
     city: Optional[str] = None
     district: Optional[str] = None
+    room_type: Optional[str] = None
     # For matching wifi/parking from request body instead of preference table
     require_wifi: Optional[bool] = False
     require_parking: Optional[bool] = False

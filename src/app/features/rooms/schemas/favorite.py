@@ -13,10 +13,12 @@ class SavedPostOut(BaseModel):
     title: str | None = None
     full_address: str | None = None
     price: int | None = None
+    thumbnail: str | None = None
     post_status: str
     is_vip: bool
     status: str
     saved_at: datetime
+
 
 
 class SavePostResponse(BaseModel):

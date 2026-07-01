@@ -12,6 +12,8 @@ from app.features.rental_requests.services.rental_history_service import RentalH
 from app.features.users.services.profile_service import ProfileService
 from app.features.rental_requests.schemas.requests import RentalRequestListOut, RentalRequestOut
 from app.features.rental_requests.services.request_service import RentalRequestService
+from app.features.users.schemas.auth import ChangePasswordRequest
+from app.features.users.services.auth_service import AuthService
 
 router = APIRouter()
 
@@ -31,6 +33,15 @@ def update_my_profile(
     db: Session = Depends(get_db),
 ) -> MeProfileResponse:
     return ProfileService(db).upsert_my_profile(account, payload)
+
+
+@router.patch("/me/password")
+def change_password(
+    payload: ChangePasswordRequest,
+    account: Account = Depends(get_current_account),
+    db: Session = Depends(get_db),
+) -> dict:
+    return AuthService(db).change_password(account.id, payload.old_password, payload.new_password)
 
 
 @router.post("/me/avatar")

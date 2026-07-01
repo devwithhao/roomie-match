@@ -9,7 +9,7 @@ from app.features.users.models.account import Account
 from app.features.users.models.role import Role
 from app.features.users.models.profile import Profile
 from app.features.users.role_utils import canonical_account_type
-from app.features.users.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest
+from app.features.users.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 from app.features.users.services.auth_service import AuthService
 
 router = APIRouter()
@@ -28,6 +28,17 @@ def login(data: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
 @router.post("/google", response_model=TokenResponse)
 def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     return AuthService(db).google_login(data)
+
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    return AuthService(db).forgot_password(data)
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    return AuthService(db).reset_password(data.token, data.new_password)
+
 
 
 @router.get("/me", response_model=UserOut)

@@ -72,6 +72,11 @@ class RoomMatcherService:
                 ):
                     score += 5
                     matched_criteria.append("Parking (5/5)")
+            
+            # Room Type (10%)
+            if request.room_type and room.room_type and request.room_type.lower() in room.room_type.lower():
+                score += 10
+                matched_criteria.append("Room Type (10/10)")
                     
             results.append(RoomMatchResult(
                 room_id=room.id,

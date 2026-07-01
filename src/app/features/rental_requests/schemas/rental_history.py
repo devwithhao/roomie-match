@@ -14,6 +14,7 @@ class RentalHistoryItemOut(BaseModel):
     title: str | None = None
     full_address: str | None = None
     price: int | None = None
+    thumbnail: str | None = None
     start_date: date
     end_date: date | None = None
     rental_status: str

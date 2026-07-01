@@ -7,6 +7,7 @@ from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
 from app.features.rooms.models.review import Review
+from app.features.rooms.models.room_image import RoomImage
 
 
 class RentalHistoryRepository:
@@ -43,9 +44,20 @@ class RentalHistoryRepository:
         offset: int,
         status: str | None = None,
         query: str | None = None,
-    ) -> list[tuple[RentalHistory, Room, Post, Review | None]]:
+    ) -> list[tuple[RentalHistory, Room, Post, Review | None, str | None]]:
+        # Subquery: first image for each room
+        thumbnail_subq = (
+            select(RoomImage.image_url)
+            .where(RoomImage.room_id == Room.id)
+            .order_by(RoomImage.id.asc())
+            .limit(1)
+            .correlate(Room)
+            .scalar_subquery()
+            .label("thumbnail")
+        )
+
         stmt = (
-            select(RentalHistory, Room, Post, Review)
+            select(RentalHistory, Room, Post, Review, thumbnail_subq)
             .join(Room, RentalHistory.room_id == Room.id)
             .join(Post, RentalHistory.post_id == Post.id)
             .outerjoin(

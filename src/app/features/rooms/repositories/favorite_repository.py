@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.features.rooms.models.favorite import Favorite
 from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
+from app.features.rooms.models.room_image import RoomImage
 
 
 class FavoriteRepository:
@@ -44,9 +45,19 @@ class FavoriteRepository:
         *,
         limit: int | None = None,
         offset: int = 0,
-    ) -> list[tuple[Post, Room, object]]:
+    ) -> list[tuple[Post, Room, object, str | None]]:
+        thumbnail_subq = (
+            select(RoomImage.image_url)
+            .where(RoomImage.room_id == Room.id)
+            .order_by(RoomImage.id.asc())
+            .limit(1)
+            .correlate(Room)
+            .scalar_subquery()
+            .label("thumbnail")
+        )
+
         stmt = (
-            select(Post, Room, Favorite.created_at)
+            select(Post, Room, Favorite.created_at, thumbnail_subq)
             .join(Favorite, Favorite.post_id == Post.id)
             .join(Room, Post.room_id == Room.id)
             .where(Favorite.account_id == account_id)

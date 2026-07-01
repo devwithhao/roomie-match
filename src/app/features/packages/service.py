@@ -235,3 +235,26 @@ class PackageService:
         features = package.features if package is not None and isinstance(package.features, dict) else {}
         duration = features.get("boost_duration_days")
         return duration if isinstance(duration, int) and duration > 0 else default
+
+    def add_free_package_for_new_user(self, account_id: int) -> None:
+        """Grant 5 free credits for AI features to new users"""
+        expires_at = datetime.utcnow() + timedelta(days=365)
+        
+        self.entitlement_repo.create(
+            Entitlement(
+                account_id=account_id,
+                feature_key="match",
+                quantity=5,
+                expires_at=expires_at,
+                source_purchase_id=None,
+            )
+        )
+        self.entitlement_repo.create(
+            Entitlement(
+                account_id=account_id,
+                feature_key="chatbot",
+                quantity=5,
+                expires_at=expires_at,
+                source_purchase_id=None,
+            )
+        )
