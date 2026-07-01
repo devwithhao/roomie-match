@@ -33,12 +33,24 @@ def test_post_moderation_rental_confirmation_and_review(client, db_session: Sess
     landlord_token, landlord_id = register(client, "workflow-landlord@example.com", "landlord")
     tenant_token, tenant_id = register(client, "workflow-tenant@example.com", "tenant")
     admin_token = create_admin(client, db_session)
+    landlord_profile = db_session.get(Profile, landlord_id)
+    landlord_profile.phone = "0901111111"
     room = Room(account_id=landlord_id, room_code="FLOW-001", title="Phòng workflow", price=2_500_000, status="available")
     db_session.add(room)
     db_session.flush()
     post = Post(room_id=room.id, account_id=landlord_id, title=room.title, status="pending", is_vip=False)
     db_session.add(post)
     db_session.commit()
+
+    pending_posts = client.get(
+        "/api/v1/admin/posts?status=pending",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert pending_posts.status_code == 200
+    assert pending_posts.json()[0]["author"] == "workflow-landlord"
+    assert pending_posts.json()[0]["author_username"] == "workflow-landlord"
+    assert pending_posts.json()[0]["author_email"] == "workflow-landlord@example.com"
+    assert pending_posts.json()[0]["author_account_id"] == landlord_id
 
     assert client.get(f"/api/v1/posts/{post.id}").status_code == 404
     approved = client.patch(f"/api/v1/admin/posts/{post.id}/status", headers={"Authorization": f"Bearer {admin_token}"}, json={"status": "approved"})
@@ -135,6 +147,7 @@ def test_verification_images_require_owner_or_admin(client, db_session: Session,
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "local_storage_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "image_storage_provider", "local")
     landlord_token, _ = register(client, "verification-owner@example.com", "landlord")
     tenant_token, _ = register(client, "verification-tenant@example.com", "tenant")
     admin_token = create_admin(client, db_session)

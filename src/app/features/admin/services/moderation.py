@@ -21,8 +21,15 @@ class AdminModerationService:
         self.db = db
 
     def list_posts(self, status_filter: str | None = None) -> list[dict]:
-        stmt = select(Post, Room, Account, Profile).join(Room, Post.room_id == Room.id).join(Account, Post.account_id == Account.id).outerjoin(Profile, Profile.account_id == Account.id)
-        if status_filter and status_filter not in {"all", "approved", "featured"}:
+        stmt = (
+            select(Post, Room, Account, Profile)
+            .outerjoin(Room, Post.room_id == Room.id)
+            .join(Account, Post.account_id == Account.id)
+            .outerjoin(Profile, Profile.account_id == Account.id)
+        )
+        if status_filter in {None, "", "all"}:
+            stmt = stmt.where(Post.status != "closed")
+        elif status_filter and status_filter not in {"approved", "featured"}:
             stmt = stmt.where(Post.status == status_filter)
         elif status_filter == "approved":
             stmt = stmt.where(Post.status == "active")
@@ -33,7 +40,10 @@ class AdminModerationService:
         for post, room, account, profile in rows:
             views = int(self.db.scalar(select(func.count()).select_from(PostInteraction).where(PostInteraction.post_id == post.id, PostInteraction.kind == "view")) or 0)
             likes = int(self.db.scalar(select(func.count()).select_from(Favorite).where(Favorite.post_id == post.id)) or 0)
-            result.append({"id": post.id, "post_id": post.id, "room_id": room.id, "title": post.title or room.title, "description": post.description or room.description, "author": profile.full_name if profile else (account.username or account.email), "created_at": post.created_at, "status": "approved" if post.status == "active" else post.status, "raw_status": post.status, "moderation_reason": post.moderation_reason, "views": views, "likes": likes, "comments": 0, "isFeatured": bool(post.is_vip and post.boost_expires_at and post.boost_expires_at > datetime.utcnow())})
+            room_id = room.id if room else post.room_id
+            room_title = room.title if room else None
+            room_description = room.description if room else None
+            result.append({"id": post.id, "post_id": post.id, "room_id": room_id, "title": post.title or room_title or f"Post #{post.id}", "description": post.description or room_description, "author": profile.full_name if profile else (account.username or account.email), "author_account_id": account.id, "author_username": account.username, "author_email": account.email, "created_at": post.created_at, "status": "approved" if post.status == "active" else post.status, "raw_status": post.status, "moderation_reason": post.moderation_reason, "views": views, "likes": likes, "comments": 0, "isFeatured": bool(post.is_vip and post.boost_expires_at and post.boost_expires_at > datetime.utcnow())})
         return result
 
     def moderate_post(self, admin: Account, post_id: int, payload: PostModerationUpdate) -> dict:

@@ -13,6 +13,7 @@ from app.features.rooms.models.favorite import Favorite
 from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
 from app.features.rooms.models.room_image import RoomImage
+from app.features.users.models.profile import Profile
 
 
 def _register(client, *, email: str, display_name: str, account_type: str):
@@ -186,6 +187,8 @@ def test_landlord_create_post_uses_public_content_without_changing_room(client, 
     )
     room.description = "Internal room description"
     db_session.add(Entitlement(account_id=owner_id, feature_key="posts_limit", quantity=1))
+    profile = db_session.get(Profile, owner_id)
+    profile.phone = "0901234567"
     db_session.commit()
 
     response = client.post(
@@ -218,6 +221,33 @@ def test_landlord_create_post_uses_public_content_without_changing_room(client, 
     public_detail = client.get(f"/api/v1/posts/{body['post_id']}")
     assert public_detail.status_code == 404
     assert db_session.get(Post, body["post_id"]).status == "pending"
+
+
+def test_landlord_create_post_requires_profile_phone(client, db_session: Session):
+    token, owner_id = _register(
+        client,
+        email="post-missing-phone@example.com",
+        display_name="Missing Phone Owner",
+        account_type="landlord",
+    )
+    room = _room(
+        db_session,
+        owner_id,
+        code="TRO-NO-PHONE",
+        title="No phone room",
+        status="available",
+    )
+    db_session.add(Entitlement(account_id=owner_id, feature_key="posts_limit", quantity=1))
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/landlord/posts",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"room_id": room.id, "title": "Should fail"},
+    )
+
+    assert response.status_code == 422
+    assert "số điện thoại" in response.json()["detail"]
 
 
 @pytest.mark.parametrize(("duration_days", "slug"), [(3, "landlord-pro"), (7, "landlord-vip")])

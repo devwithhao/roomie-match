@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -73,11 +73,39 @@ class RentalRequestService:
         self.db.commit()
         return self._out(request, room)
 
-    def list_landlord(self, account: Account, request_status: str | None = None) -> RentalRequestListOut:
+    def list_landlord(
+        self,
+        account: Account,
+        request_status: str | None = None,
+        search: str | None = None,
+    ) -> RentalRequestListOut:
         self._require_role(account, "landlord")
-        stmt = select(RentalRequest, Room).join(Room, RentalRequest.room_id == Room.id).where(RentalRequest.landlord_id == account.id)
+        stmt = (
+            select(RentalRequest, Room)
+            .join(Room, RentalRequest.room_id == Room.id)
+            .outerjoin(Profile, Profile.account_id == RentalRequest.account_id)
+            .outerjoin(Account, Account.id == RentalRequest.account_id)
+            .where(RentalRequest.landlord_id == account.id)
+        )
         if request_status:
             stmt = stmt.where(RentalRequest.status == request_status)
+        if search and search.strip():
+            keyword = f"%{search.strip()}%"
+            predicates = [
+                Profile.full_name.like(keyword),
+                Profile.phone.like(keyword),
+                Room.title.like(keyword),
+                Room.room_code.like(keyword),
+                Account.email.like(keyword),
+            ]
+            numeric_part = "".join(character for character in search if character.isdigit())
+            if numeric_part:
+                numeric_value = int(numeric_part)
+                predicates.extend([
+                    RentalRequest.room_id == numeric_value,
+                    RentalRequest.post_id == numeric_value,
+                ])
+            stmt = stmt.where(or_(*predicates))
         rows = self.db.execute(stmt.order_by(RentalRequest.created_at.desc())).all()
         return RentalRequestListOut(items=[self._out(req, room) for req, room in rows], total=len(rows))
 
@@ -151,6 +179,8 @@ class RentalRequestService:
             room_id=request.room_id,
             post_id=request.post_id,
             room_title=room.title,
+            room_code=room.room_code,
+            post_code=f"P{request.post_id:03d}",
             start_date=request.start_date,
             note=request.note,
             status=request.status,

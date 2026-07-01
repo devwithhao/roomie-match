@@ -190,10 +190,11 @@ def delete_post(
 @router.get("/rental-requests", response_model=RentalRequestListOut)
 def list_rental_requests(
     request_status: str | None = Query(default=None, alias="status"),
+    search: str | None = Query(default=None),
     account: Account = Depends(require_landlord_account),
     db: Session = Depends(get_db),
 ) -> RentalRequestListOut:
-    return RentalRequestService(db).list_landlord(account, request_status)
+    return RentalRequestService(db).list_landlord(account, request_status, search)
 
 
 @router.patch("/rental-requests/{request_id}", response_model=RentalRequestOut)
