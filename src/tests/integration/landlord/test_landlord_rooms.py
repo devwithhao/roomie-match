@@ -10,6 +10,7 @@ from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
 from app.features.rooms.models.room_amenity import RoomAmenity
 from app.features.rooms.models.room_image import RoomImage
+from app.features.users.models.profile import Profile
 
 
 def _register(client, *, email: str, display_name: str, account_type: str):
@@ -40,6 +41,8 @@ def test_landlord_create_room_publishes_active_post(client, db_session: Session,
             Entitlement(account_id=landlord_id, feature_key="photo_limit", quantity=1),
         ]
     )
+    profile = db_session.get(Profile, landlord_id)
+    profile.phone = "0900000000"
     db_session.commit()
 
     monkeypatch.setattr(
@@ -198,6 +201,8 @@ def test_landlord_create_room_blocks_when_photo_quota_is_not_enough(client, db_s
             Entitlement(account_id=landlord_id, feature_key="photo_limit", quantity=0),
         ]
     )
+    profile = db_session.get(Profile, landlord_id)
+    profile.phone = "0900000001"
     db_session.commit()
 
     called = {"upload": False}
@@ -229,6 +234,8 @@ def test_landlord_upload_failure_does_not_consume_quota(client, db_session: Sess
     photo_entitlement = Entitlement(account_id=landlord_id, feature_key="photo_limit", quantity=1)
     post_entitlement = Entitlement(account_id=landlord_id, feature_key="posts_limit", quantity=1)
     db_session.add_all([photo_entitlement, post_entitlement])
+    profile = db_session.get(Profile, landlord_id)
+    profile.phone = "0900000002"
     db_session.commit()
 
     def fail_upload(_file_obj, _filename=None):

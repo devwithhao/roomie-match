@@ -106,6 +106,9 @@ class LandlordPostOut(BaseModel):
     room_title: str | None = None
     room_description: str | None = None
     author: str | None = None
+    author_username: str | None = None
+    author_email: str | None = None
+    author_account_id: int | None = None
     publishedAt: str
     created_at: datetime
     status: str

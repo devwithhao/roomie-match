@@ -35,6 +35,8 @@ class RentalRequestOut(BaseModel):
     room_id: int
     post_id: int
     room_title: str | None = None
+    room_code: str | None = None
+    post_code: str | None = None
     start_date: date
     note: str | None = None
     status: str

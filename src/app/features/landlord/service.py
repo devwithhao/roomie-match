@@ -27,6 +27,7 @@ from app.features.rooms.models.room_amenity import RoomAmenity
 from app.features.rooms.models.room_image import RoomImage
 from app.features.packages.service import PackageService
 from app.features.users.models.account import Account
+from app.features.users.models.profile import Profile
 from app.features.landlord.models import PostInteraction, RentalRequest
 from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.review import Review
@@ -230,6 +231,7 @@ class LandlordService:
     ) -> LandlordRoomOut:
         image_files = list(image_files)
         if publish:
+            self._require_post_author_profile(account)
             self._ensure_package_credit(account, "posts_limit", 1)
         self._ensure_package_credit(account, "photo_limit", len(image_files))
 
@@ -395,21 +397,27 @@ class LandlordService:
         )
 
     def create_post(self, account: Account, payload: LandlordPostCreate) -> LandlordPostOut:
+        self._require_post_author_profile(account)
         room = self._get_owned_room(account, payload.room_id)
         existing = self._db.scalars(
             select(Post).where(Post.room_id == room.id, Post.account_id == account.id)
         ).first()
         if existing is not None:
             changed = False
-            if payload.title is not None:
+            content_changed = False
+            if payload.title is not None and existing.title != payload.title:
                 existing.title = payload.title
                 changed = True
-            if payload.description is not None:
+                content_changed = True
+            if payload.description is not None and existing.description != payload.description:
                 existing.description = payload.description
                 changed = True
-            if existing.status == "rejected" and changed:
+                content_changed = True
+            if content_changed and existing.status in {"active", "rejected", "closed"}:
                 existing.status = "pending"
                 existing.moderation_reason = None
+                self._clear_boost(existing)
+                changed = True
             if payload.is_vip and existing.status != "active":
                 raise HTTPException(status_code=409, detail="Chỉ bài đã được duyệt mới có thể đẩy nổi bật")
             if payload.is_vip and not self._is_boost_active(existing):
@@ -782,6 +790,8 @@ class LandlordService:
     def _post_out(self, post: Post, room: Room, favorite_count: int | None = None) -> LandlordPostOut:
         status_value = self._landlord_status(post)
         boost_days_left = self._boost_days_left(post)
+        author_account = self._db.get(Account, post.account_id)
+        author_profile = self._db.get(Profile, post.account_id)
         thumbnail = self._db.scalars(
             select(RoomImage.image_url).where(RoomImage.room_id == room.id).order_by(RoomImage.id.asc())
         ).first()
@@ -797,7 +807,10 @@ class LandlordService:
             description=post.description if post.description is not None else room.description,
             room_title=room.title,
             room_description=room.description,
-            author=None,
+            author=author_profile.full_name if author_profile else (author_account.username if author_account else None),
+            author_username=author_account.username if author_account else None,
+            author_email=author_account.email if author_account else None,
+            author_account_id=post.account_id,
             publishedAt=post.created_at.date().isoformat(),
             created_at=post.created_at,
             status=status_value,
@@ -909,3 +922,22 @@ class LandlordService:
 
     def _make_room_code(self, room_id: int) -> str:
         return f"TRO-{room_id:06d}"
+
+    def _require_post_author_profile(self, account: Account) -> Profile:
+        profile = self._db.get(Profile, account.id)
+        if profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Vui lòng cập nhật hồ sơ cá nhân trước khi đăng bài.",
+            )
+        if not (profile.full_name or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Vui lòng cập nhật họ tên trong hồ sơ cá nhân trước khi đăng bài.",
+            )
+        if not (profile.phone or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Vui lòng cập nhật số điện thoại trong hồ sơ cá nhân trước khi đăng bài.",
+            )
+        return profile
