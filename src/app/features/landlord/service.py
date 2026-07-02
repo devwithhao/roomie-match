@@ -38,44 +38,41 @@ class LandlordService:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_stats(self, account: Account, *, range_filter: str) -> LandlordStatsOut:
+    def get_stats(self, account: Account, *, range_filter: str, date_filter: date | None = None) -> LandlordStatsOut:
+        day_start, day_end = self._day_bounds(date_filter)
+        room_stmt = select(Room).where(Room.account_id == account.id)
+        post_stmt = (
+            select(Post, Room)
+            .join(Room, Post.room_id == Room.id)
+            .where(Post.account_id == account.id)
+        )
+        if day_start and day_end:
+            room_stmt = room_stmt.where(Room.created_at >= day_start, Room.created_at < day_end)
+            post_stmt = post_stmt.where(Post.created_at >= day_start, Post.created_at < day_end)
+
         rooms = list(
             self._db.scalars(
-                select(Room).where(Room.account_id == account.id).order_by(Room.created_at.desc(), Room.id.desc())
+                room_stmt.order_by(Room.created_at.desc(), Room.id.desc())
             ).all()
         )
         post_rows = list(
             self._db.execute(
-                select(Post, Room)
-                .join(Room, Post.room_id == Room.id)
-                .where(Post.account_id == account.id)
-                .order_by(Post.created_at.desc(), Post.id.desc())
+                post_stmt.order_by(Post.created_at.desc(), Post.id.desc())
             ).all()
         )
         posts = [post for post, _room in post_rows]
         post_ids = [post.id for post in posts]
-        favorite_counts = self._favorite_counts_by_post(post_ids)
+        favorite_counts = self._favorite_counts_by_post(post_ids, start_at=day_start, end_at=day_end)
         total_favorites = sum(favorite_counts.values())
-        total_views = self._interaction_count(post_ids, "view")
-        total_contacts = self._interaction_count(post_ids, "contact")
-        total_reviews = int(
-            self._db.scalar(
-                select(func.count())
-                .select_from(Review)
-                .join(Room, Review.room_id == Room.id)
-                .where(Room.account_id == account.id)
-            )
-            or 0
-        )
-        total_tenants = int(
-            self._db.scalar(
-                select(func.count())
-                .select_from(RentalHistory)
-                .join(Room, RentalHistory.room_id == Room.id)
-                .where(Room.account_id == account.id)
-            )
-            or 0
-        )
+        total_views = self._interaction_count(post_ids, "view", start_at=day_start, end_at=day_end)
+        total_contacts = self._interaction_count(post_ids, "contact", start_at=day_start, end_at=day_end)
+        review_stmt = select(func.count()).select_from(Review).join(Room, Review.room_id == Room.id).where(Room.account_id == account.id)
+        tenant_stmt = select(func.count()).select_from(RentalHistory).join(Room, RentalHistory.room_id == Room.id).where(Room.account_id == account.id)
+        if day_start and day_end:
+            review_stmt = review_stmt.where(Review.created_at >= day_start, Review.created_at < day_end)
+            tenant_stmt = tenant_stmt.where(RentalHistory.created_at >= day_start, RentalHistory.created_at < day_end)
+        total_reviews = int(self._db.scalar(review_stmt) or 0)
+        total_tenants = int(self._db.scalar(tenant_stmt) or 0)
 
         room_status_counts = {"rented": 0, "available": 0, "negotiating": 0}
         for room in rooms:
@@ -105,7 +102,7 @@ class LandlordService:
                     "post": room.title,
                     "title": room.title,
                     "price": room.price or 0,
-                    "views": self._interaction_count([post.id], "view") if post is not None else 0,
+                    "views": self._interaction_count([post.id], "view", start_at=day_start, end_at=day_end) if post is not None else 0,
                     "favorite_count": favorite_count,
                     "status": room.status,
                 }
@@ -155,7 +152,7 @@ class LandlordService:
                     "tone": "orange",
                 },
             ],
-            weeklyInteractions=self._weekly_interactions(post_ids),
+            weeklyInteractions=self._weekly_interactions(post_ids, selected_day=date_filter),
             roomStatus=[
                 {"label": "Đã thuê", "value": room_status_counts.get("rented", 0), "color": "#5f9f1b"},
                 {"label": "Trống", "value": room_status_counts.get("available", 0), "color": "#ef4b12"},
@@ -830,34 +827,63 @@ class LandlordService:
             moderation_reason=post.moderation_reason,
         )
 
-    def _favorite_counts_by_post(self, post_ids: Iterable[int]) -> dict[int, int]:
+    @staticmethod
+    def _day_bounds(day: date | None) -> tuple[datetime | None, datetime | None]:
+        if day is None:
+            return None, None
+        start_at = datetime.combine(day, time.min)
+        return start_at, start_at + timedelta(days=1)
+
+    def _favorite_counts_by_post(
+        self,
+        post_ids: Iterable[int],
+        *,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+    ) -> dict[int, int]:
         ids = list({int(post_id) for post_id in post_ids})
         if not ids:
             return {}
-        rows = self._db.execute(
+        stmt = (
             select(Favorite.post_id, func.count(Favorite.account_id))
             .where(Favorite.post_id.in_(ids))
-            .group_by(Favorite.post_id)
+        )
+        if start_at is not None:
+            stmt = stmt.where(Favorite.created_at >= start_at)
+        if end_at is not None:
+            stmt = stmt.where(Favorite.created_at < end_at)
+        rows = self._db.execute(
+            stmt.group_by(Favorite.post_id)
         ).all()
         return {int(post_id): int(count) for post_id, count in rows}
 
-    def _interaction_count(self, post_ids: Iterable[int], kind: str) -> int:
+    def _interaction_count(
+        self,
+        post_ids: Iterable[int],
+        kind: str,
+        *,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+    ) -> int:
         ids = list({int(post_id) for post_id in post_ids})
         if not ids:
             return 0
+        stmt = select(func.count()).select_from(PostInteraction).where(
+            PostInteraction.post_id.in_(ids),
+            PostInteraction.kind == kind,
+        )
+        if start_at is not None:
+            stmt = stmt.where(PostInteraction.created_at >= start_at)
+        if end_at is not None:
+            stmt = stmt.where(PostInteraction.created_at < end_at)
         return int(
-            self._db.scalar(
-                select(func.count()).select_from(PostInteraction).where(
-                    PostInteraction.post_id.in_(ids),
-                    PostInteraction.kind == kind,
-                )
-            )
+            self._db.scalar(stmt)
             or 0
         )
 
-    def _weekly_interactions(self, post_ids: Iterable[int]) -> list[dict[str, int | str]]:
+    def _weekly_interactions(self, post_ids: Iterable[int], selected_day: date | None = None) -> list[dict[str, int | str]]:
         ids = list({int(post_id) for post_id in post_ids})
-        today = date.today()
+        today = selected_day or date.today()
         days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
         labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
         likes_by_day = {day.isoformat(): 0 for day in days}

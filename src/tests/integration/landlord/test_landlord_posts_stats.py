@@ -94,6 +94,56 @@ def test_landlord_stats_uses_owned_rooms_posts_and_favorites(client, db_session:
     assert body["postPerformance"][0]["value"] == 1
 
 
+def test_landlord_stats_can_filter_by_specific_date(client, db_session: Session):
+    token, owner_id = _register(
+        client,
+        email="stats-date-owner@example.com",
+        display_name="Stats Date Owner",
+        account_type="landlord",
+    )
+    _tenant_token, tenant_id = _register(
+        client,
+        email="stats-date-tenant@example.com",
+        display_name="Stats Date Tenant",
+        account_type="tenant",
+    )
+
+    target_day = datetime.utcnow().date()
+    old_day = target_day - timedelta(days=2)
+    target_at = datetime.combine(target_day, datetime.min.time()) + timedelta(hours=9)
+    old_at = datetime.combine(old_day, datetime.min.time()) + timedelta(hours=9)
+
+    target_room = _room(db_session, owner_id, code="TRO-DATE-TODAY", title="Today room")
+    old_room = _room(db_session, owner_id, code="TRO-DATE-OLD", title="Old room")
+    target_room.created_at = target_at
+    old_room.created_at = old_at
+    target_post = Post(room_id=target_room.id, account_id=owner_id, status="active", is_vip=False)
+    old_post = Post(room_id=old_room.id, account_id=owner_id, status="active", is_vip=False)
+    db_session.add_all([target_post, old_post])
+    db_session.flush()
+    target_post.created_at = target_at
+    old_post.created_at = old_at
+    target_favorite = Favorite(account_id=tenant_id, post_id=target_post.id)
+    old_favorite = Favorite(account_id=tenant_id, post_id=old_post.id)
+    db_session.add_all([target_favorite, old_favorite])
+    db_session.flush()
+    target_favorite.created_at = target_at
+    old_favorite.created_at = old_at
+    db_session.commit()
+
+    response = client.get(
+        f"/api/v1/landlord/stats?date={target_day.isoformat()}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_rooms"] == 1
+    assert body["total_posts"] == 1
+    assert body["total_favorites"] == 1
+    assert body["postPerformance"][0]["label"] == "TRO-DATE-TODAY"
+
+
 def test_landlord_posts_search_filter_and_favorite_metrics(client, db_session: Session):
     token, owner_id = _register(
         client,
