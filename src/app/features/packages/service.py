@@ -109,15 +109,17 @@ class PackageService:
             )
 
         features = package.features if isinstance(package.features, dict) else {}
-        for feature_key in ("posts_limit", "photo_limit", "boost_limit"):
-            quantity = features.get(feature_key)
-            if isinstance(quantity, int):
+        display_only_keys = {"list", "features", "benefits", "items", "boost_duration_days"}
+        for feature_key, quantity in features.items():
+            if feature_key in display_only_keys or isinstance(quantity, bool):
+                continue
+            if isinstance(quantity, (int, float)) and quantity >= 0:
                 entitlements.append(
                     self.entitlement_repo.create(
                         Entitlement(
                             account_id=purchase.account_id,
                             feature_key=feature_key,
-                            quantity=quantity,
+                            quantity=int(quantity),
                             expires_at=expires_at,
                             source_purchase_id=purchase.id,
                         )

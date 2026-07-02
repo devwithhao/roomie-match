@@ -108,7 +108,12 @@ def test_landlord_purchase_package_is_paid_and_grants_entitlements(client, db_se
     assert body["status"] == "pending"
     assert body["package_id"] == pkg.id
 
-    assert db_session.query(Entitlement).filter_by(account_id=account_id).count() == 0
+    assert (
+        db_session.query(Entitlement)
+        .filter_by(account_id=account_id, source_purchase_id=body["id"])
+        .count()
+        == 0
+    )
 
 
 @pytest.mark.parametrize(
@@ -162,7 +167,12 @@ def test_landlord_standard_packages_grant_expected_entitlements(
     assert purchase.status_code == 201
     assert purchase.json()["amount_cents"] == price_cents
     assert purchase.json()["status"] == "pending"
-    assert db_session.query(Entitlement).filter_by(account_id=account_id).count() == 0
+    assert (
+        db_session.query(Entitlement)
+        .filter_by(account_id=account_id, source_purchase_id=purchase.json()["id"])
+        .count()
+        == 0
+    )
 
 
 def test_payment_confirmation_is_idempotent(client, db_session: Session):
@@ -186,3 +196,59 @@ def test_payment_confirmation_is_idempotent(client, db_session: Session):
     service.confirm_purchase(purchase_id, "txn-idempotent", {"verified": True})
     db_session.commit()
     assert db_session.query(Entitlement).filter_by(account_id=account_id, source_purchase_id=purchase_id).count() == first_count
+
+
+def test_payment_confirmation_grants_dynamic_package_feature_quotas(client, db_session: Session):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "dynamic-package@example.com",
+            "password": "password123",
+            "display_name": "Dynamic Package",
+            "account_type": "landlord",
+        },
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    account_id = response.json()["user"]["id"]
+    package = Package(
+        slug="dynamic-landlord-package",
+        name="Dynamic Landlord Package",
+        price_cents=120000,
+        currency="vnd",
+        target_role="landlord",
+        period="30_days",
+        features={
+            "posts_limit": 5,
+            "featured_badge_limit": 2,
+            "list": ["5 bai dang / thang", "2 huy hieu noi bat"],
+            "boost_duration_days": 7,
+        },
+        active=True,
+    )
+    db_session.add(package)
+    db_session.commit()
+
+    created = client.post(
+        "/api/v1/packages/purchase",
+        json={"package_id": package.id},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    purchase_id = created.json()["id"]
+
+    from app.features.packages.service import PackageService
+
+    PackageService(db_session).confirm_purchase(purchase_id, "txn-dynamic", {"verified": True})
+    db_session.commit()
+
+    entitlements = {
+        item.feature_key: item.quantity
+        for item in db_session.query(Entitlement)
+        .filter_by(account_id=account_id, source_purchase_id=purchase_id)
+        .all()
+    }
+    assert entitlements["posts_limit"] == 5
+    assert entitlements["featured_badge_limit"] == 2
+    assert "list" not in entitlements
+    assert "boost_duration_days" not in entitlements
+    assert entitlements["active_subscription"] is None
