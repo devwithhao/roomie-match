@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.features.landlord.models import RentalRequest
+from app.features.packages.models import Entitlement
 from app.features.rental_requests.models.rental_history import RentalHistory
 from app.features.rooms.models.post import Post
 from app.features.rooms.models.room import Room
@@ -73,6 +74,24 @@ def test_post_moderation_rental_confirmation_and_review(client, db_session: Sess
 
     reviewed = client.post(f"/api/v1/rooms/{room.id}/reviews", headers={"Authorization": f"Bearer {tenant_token}"}, json={"rating": 5, "comment": "Phòng đúng mô tả"})
     assert reviewed.status_code == 200
+
+    db_session.add(Entitlement(account_id=landlord_id, feature_key="posts_limit", quantity=1))
+    db_session.commit()
+    ended = client.patch(f"/api/v1/landlord/rental-requests/{request_id}/end", headers={"Authorization": f"Bearer {landlord_token}"})
+    assert ended.status_code == 200
+    assert ended.json()["status"] == "ended"
+    db_session.expire_all()
+    assert db_session.get(Room, room.id).status == "available"
+    assert db_session.query(RentalRequest).filter_by(id=request_id).one().accepted_room_id is None
+    assert db_session.query(RentalHistory).filter_by(account_id=tenant_id, room_id=room.id, status="ended").count() == 1
+
+    reposted = client.post(
+        "/api/v1/landlord/posts",
+        headers={"Authorization": f"Bearer {landlord_token}"},
+        json={"room_id": room.id},
+    )
+    assert reposted.status_code == 201
+    assert reposted.json()["status"] == "pending"
 
 
 def test_tenant_must_cancel_existing_pending_request_before_requesting_another_post(client, db_session: Session):

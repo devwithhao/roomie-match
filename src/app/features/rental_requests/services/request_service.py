@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_, select
@@ -149,6 +149,51 @@ class RentalRequestService:
         except IntegrityError as exc:
             self.db.rollback()
             raise HTTPException(status_code=409, detail="Phòng đã được xác nhận cho khách khác") from exc
+        return self._out(request, room)
+
+    def end_rental(self, account: Account, request_id: int) -> RentalRequestOut:
+        self._require_role(account, "landlord")
+        row = self.db.execute(
+            select(RentalRequest, Room)
+            .join(Room, RentalRequest.room_id == Room.id)
+            .where(RentalRequest.id == request_id, RentalRequest.landlord_id == account.id)
+            .with_for_update()
+        ).first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy yêu cầu")
+        request, room = row
+        if request.status != "accepted":
+            raise HTTPException(status_code=409, detail="Chỉ có thể kết thúc lượt thuê đã được chấp nhận")
+
+        request.status = "ended"
+        request.accepted_room_id = None
+        request.decided_at = datetime.utcnow()
+        room.status = "available"
+        room.current_people = 0
+
+        history = self.db.scalar(
+            select(RentalHistory)
+            .where(
+                RentalHistory.account_id == request.account_id,
+                RentalHistory.room_id == room.id,
+                RentalHistory.post_id == request.post_id,
+                RentalHistory.status == "active",
+            )
+            .order_by(RentalHistory.created_at.desc(), RentalHistory.id.desc())
+        )
+        if history is not None:
+            history.status = "ended"
+            history.end_date = date.today()
+
+        self._notify(
+            request.account_id,
+            "rental_request",
+            "Lượt thuê đã kết thúc",
+            f"Chủ trọ đã kết thúc lượt thuê {room.title or 'phòng'}.",
+            "rental_request",
+            request.id,
+        )
+        self.db.commit()
         return self._out(request, room)
 
     def _owned_tenant_request(self, account: Account, request_id: int):

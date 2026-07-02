@@ -400,6 +400,21 @@ class LandlordService:
             select(Post).where(Post.room_id == room.id, Post.account_id == account.id)
         ).first()
         if existing is not None:
+            if existing.status == "closed":
+                if room.status != "available":
+                    raise HTTPException(status_code=409, detail="Phòng chưa sẵn sàng để đăng lại")
+                self._ensure_package_credit(account, "posts_limit", 1)
+                existing.title = payload.title or room.title
+                existing.description = payload.description if payload.description is not None else room.description
+                existing.status = "pending"
+                existing.moderation_reason = None
+                self._clear_boost(existing)
+                self._db.flush()
+                self._consume_package_credit(account, "posts_limit", 1, entity_type="post", entity_id=existing.id)
+                self._db.commit()
+                self._db.refresh(existing)
+                return self._post_out(existing, room)
+
             changed = False
             content_changed = False
             if payload.title is not None and existing.title != payload.title:

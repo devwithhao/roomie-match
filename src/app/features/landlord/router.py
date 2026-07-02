@@ -208,6 +208,15 @@ def decide_rental_request(
     return RentalRequestService(db).decide(account, request_id, payload)
 
 
+@router.patch("/rental-requests/{request_id}/end", response_model=RentalRequestOut)
+def end_rental_request(
+    request_id: int,
+    account: Account = Depends(require_landlord_account),
+    db: Session = Depends(get_db),
+) -> RentalRequestOut:
+    return RentalRequestService(db).end_rental(account, request_id)
+
+
 @router.get("/verification", response_model=LandlordVerificationOut | None)
 def get_verification(
     account: Account = Depends(require_landlord_account),
