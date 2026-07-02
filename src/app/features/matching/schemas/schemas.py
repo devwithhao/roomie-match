@@ -52,6 +52,7 @@ class RoommateMatchResult(BaseModel):
     joinedAt: str
     avatar: Optional[str] = None
     contact: MatchContact
+    description: Optional[str] = None
     
     # Old fields retained for backward compatibility
     account_id: int
@@ -78,6 +79,7 @@ class RejectHistoryItem(BaseModel):
     joinedAt: str
     avatar: Optional[str] = None
     contact: MatchContact
+    description: Optional[str] = None
 
     account_id: int
     full_name: str
@@ -91,6 +93,7 @@ class MatchHistoryItem(BaseModel):
     joinedAt: str
     avatar: Optional[str] = None
     contact: MatchContact
+    description: Optional[str] = None
 
     account_id: int
     full_name: str

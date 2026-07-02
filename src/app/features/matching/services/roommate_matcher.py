@@ -42,33 +42,59 @@ class RoommateMatcherService:
         for r in rejects:
             excluded_ids.add(r.rejected_account_id)
 
-        # Fetch candidate preferences
-        stmt = select(UserPreference).where(
+        # Fetch candidate preferences with their profiles
+        stmt = select(UserPreference, Profile).join(Profile, UserPreference.account_id == Profile.account_id).where(
             UserPreference.account_id.notin_(excluded_ids)
         )
         
         # 1. Rule-based filtering
         if current_pref.target_city:
             stmt = stmt.where(UserPreference.target_city == current_pref.target_city)
-        if current_pref.target_gender and current_pref.target_gender != "any":
-            stmt = stmt.where(UserPreference.target_gender.in_([current_pref.target_gender, "any"]))
             
-        candidate_prefs = self.db.scalars(stmt).all()
+        current_profile = self.db.scalar(select(Profile).where(Profile.account_id == current_account_id))
+        current_gender = current_profile.gender if current_profile else None
+        
+        # If user wants a specific gender, candidates must BE that gender
+        if current_pref.target_gender and current_pref.target_gender != "any":
+            stmt = stmt.where(Profile.gender == current_pref.target_gender)
+            
+        # Candidates must want the user's gender (or any)
+        if current_gender:
+            stmt = stmt.where(UserPreference.target_gender.in_([current_gender, "any"]))
+            
+        candidate_rows = self.db.execute(stmt).all()
         
         results = []
-        for pref in candidate_prefs:
-            # Rule: Budget overlap
-            if current_pref.budget_min and pref.budget_max and current_pref.budget_min > pref.budget_max:
-                continue
-            if current_pref.budget_max and pref.budget_min and current_pref.budget_max < pref.budget_min:
-                continue
-                
+        for pref, profile in candidate_rows:
             score = 0.0
             matched_criteria = []
             
-            # Budget similarity
-            score += 40
-            matched_criteria.append(f"Ngân sách: {pref.budget_min//1000}k - {pref.budget_max//1000}k")
+            # Budget overlap calculation
+            user_min = current_pref.budget_min or 0
+            user_max = current_pref.budget_max or 999999999
+            cand_min = pref.budget_min or 0
+            cand_max = pref.budget_max or 999999999
+            
+            overlap_min = max(user_min, cand_min)
+            overlap_max = min(user_max, cand_max)
+            
+            if overlap_min <= overlap_max:
+                # They overlap! Calculate how much
+                overlap_range = overlap_max - overlap_min
+                user_range = user_max - user_min if user_max != 999999999 else overlap_range
+                
+                # Proportional score based on overlap (up to 40 points)
+                budget_score = 40.0
+                if user_range > 0:
+                    ratio = overlap_range / user_range
+                    budget_score = 20 + (20 * ratio) # base 20 for overlapping, up to 40
+                
+                score += budget_score
+                matched_criteria.append(f"Ngân sách tương đồng: {overlap_min//1000}k - {overlap_max//1000}k")
+            else:
+                # No overlap, penalize but don't strictly exclude if everything else matches
+                score -= 10
+
             
             # District match
             if current_pref.target_district and pref.target_district and current_pref.target_district == pref.target_district:
@@ -81,12 +107,13 @@ class RoommateMatcherService:
                 if common_habits:
                     habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 40
                     score += habit_score
-                    matched_criteria.append(f"Thói quen chung: {', '.join(common_habits)}")
+                    habit_vi = {"quiet": "Yên tĩnh", "clean": "Sạch sẽ", "early_sleep": "Ngủ sớm", "social": "Hoà đồng", "cooking": "Thích nấu ăn"}
+                    translated = [habit_vi.get(h, h) for h in common_habits]
+                    matched_criteria.append(f"Thói quen chung: {', '.join(translated)}")
                 
             # Only consider if score > 0 to save processing
             if score > 0:
-                # Fetch profile for user details
-                profile = self.db.scalar(select(Profile).where(Profile.account_id == pref.account_id))
+                # Fetch account for user details
                 account = self.db.scalar(select(Account).where(Account.id == pref.account_id))
                 if profile and account:
                     contact = MatchContact(
@@ -108,6 +135,7 @@ class RoommateMatcherService:
                         joinedAt=joined_at,
                         avatar=profile.avatar_url,
                         contact=contact,
+                        description=getattr(pref, "introduce", None) or "",
                         account_id=pref.account_id,
                         full_name=profile.full_name,
                         avatar_url=profile.avatar_url,
@@ -186,21 +214,38 @@ class RoommateMatcherService:
             score = 0.0
             matched_criteria = []
             
-            if not (current_pref.budget_min and pref.budget_max and current_pref.budget_min > pref.budget_max) and \
-               not (current_pref.budget_max and pref.budget_min and current_pref.budget_max < pref.budget_min):
-                score += 40
-                matched_criteria.append(f"Ngân sách: {pref.budget_min//1000}k - {pref.budget_max//1000}k")
+            # Budget logic
+            user_min = current_pref.budget_min or 0
+            user_max = current_pref.budget_max or 999999999
+            cand_min = pref.budget_min or 0
+            cand_max = pref.budget_max or 999999999
+            
+            overlap_min = max(user_min, cand_min)
+            overlap_max = min(user_max, cand_max)
+            
+            if overlap_min <= overlap_max:
+                overlap_range = overlap_max - overlap_min
+                user_range = user_max - user_min if user_max != 999999999 else overlap_range
+                budget_score = 40.0
+                if user_range > 0:
+                    budget_score = 20 + (20 * (overlap_range / user_range))
+                score += budget_score
+                matched_criteria.append(f"Ngân sách tương đồng: {overlap_min//1000}k - {overlap_max//1000}k")
+            else:
+                score -= 10
                 
-                if current_pref.target_district and pref.target_district and current_pref.target_district == pref.target_district:
-                    score += 20
-                    matched_criteria.append(f"Khu vực: {pref.target_district}")
-                    
-                if current_pref.habit and pref.habit:
-                    common_habits = set(current_pref.habit).intersection(set(pref.habit))
-                    if common_habits:
-                        habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 40
-                        score += habit_score
-                        matched_criteria.append(f"Thói quen chung: {', '.join(common_habits)}")
+            if current_pref.target_district and pref.target_district and current_pref.target_district == pref.target_district:
+                score += 20
+                matched_criteria.append(f"Khu vực: {pref.target_district}")
+                
+            if current_pref.habit and pref.habit:
+                common_habits = set(current_pref.habit).intersection(set(pref.habit))
+                if common_habits:
+                    habit_score = (len(common_habits) / max(len(current_pref.habit), 1)) * 40
+                    score += habit_score
+                    habit_vi = {"quiet": "Yên tĩnh", "clean": "Sạch sẽ", "early_sleep": "Ngủ sớm", "social": "Hoà đồng", "cooking": "Thích nấu ăn"}
+                    translated = [habit_vi.get(h, h) for h in common_habits]
+                    matched_criteria.append(f"Thói quen chung: {', '.join(translated)}")
                         
             contact = MatchContact(
                 email=account.email or "",
@@ -221,6 +266,7 @@ class RoommateMatcherService:
                 joinedAt=joined_at,
                 avatar=profile.avatar_url,
                 contact=contact,
+                description=getattr(pref, "introduce", None) or "",
                 account_id=pref.account_id,
                 full_name=profile.full_name,
                 avatar_url=profile.avatar_url,

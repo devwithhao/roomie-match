@@ -41,6 +41,10 @@ class MatchInteractionService:
         if reject:
             self.db.delete(reject)
             
+        pref = self.db.scalar(select(UserPreference).where(UserPreference.account_id == current_account_id))
+        if pref and pref.suggested_accounts and target_account_id in pref.suggested_accounts:
+            pref.suggested_accounts = [i for i in pref.suggested_accounts if i != target_account_id]
+            
         self.db.commit()
         
         return {"detail": "Match accepted successfully."}
@@ -69,6 +73,10 @@ class MatchInteractionService:
         if match:
             match.is_matched = False
             self.matches.update(match)
+            
+        pref = self.db.scalar(select(UserPreference).where(UserPreference.account_id == current_account_id))
+        if pref and pref.suggested_accounts and target_account_id in pref.suggested_accounts:
+            pref.suggested_accounts = [i for i in pref.suggested_accounts if i != target_account_id]
             
         self.db.commit()
             
@@ -104,6 +112,7 @@ class MatchInteractionService:
                     joinedAt=joined_at,
                     avatar=profile.avatar_url,
                     contact=contact,
+                    description=getattr(pref, "introduce", None) or "" if pref else getattr(profile, "bio", None) or "",
                     account_id=r.rejected_account_id,
                     full_name=profile.full_name,
                     avatar_url=profile.avatar_url,
@@ -142,6 +151,7 @@ class MatchInteractionService:
                     joinedAt=joined_at,
                     avatar=profile.avatar_url,
                     contact=contact,
+                    description=getattr(pref, "introduce", None) or "" if pref else getattr(profile, "bio", None) or "",
                     account_id=target_id,
                     full_name=profile.full_name,
                     avatar_url=profile.avatar_url,

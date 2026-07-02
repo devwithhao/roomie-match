@@ -54,7 +54,9 @@ def get_room_search_tool(db: Session) -> StructuredTool:
 
             if district:
                 clean_district = district.split(" ho")[0].split(" hay")[0].strip()
-                query = query.where(Room.district.ilike(f"%{clean_district}%"))
+                hcm_keywords = ["hồ chí minh", "hcm", "tphcm", "ho chi minh", "thành phố hồ chí minh"]
+                if clean_district.lower() not in hcm_keywords:
+                    query = query.where(Room.district.ilike(f"%{clean_district}%"))
             if max_price:
                 query = query.where(Room.price <= int(max_price))
             if room_type:
