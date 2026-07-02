@@ -124,10 +124,11 @@ def delete_room_image(
 @router.get("/stats", response_model=LandlordStatsOut)
 def get_stats(
     range_filter: str = Query(default="30d", alias="range", pattern="^(7d|30d|3m)$"),
+    date_filter: date | None = Query(default=None, alias="date"),
     account: Account = Depends(require_landlord_account),
     db: Session = Depends(get_db),
 ) -> LandlordStatsOut:
-    return LandlordService(db).get_stats(account, range_filter=range_filter)
+    return LandlordService(db).get_stats(account, range_filter=range_filter, date_filter=date_filter)
 
 
 @router.get("/posts", response_model=LandlordPostListOut)

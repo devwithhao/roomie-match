@@ -1,22 +1,29 @@
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.core.config import settings
+from sqlalchemy import select
+from app.database.session import SessionLocal
 from app.features.users.models.account import Account
 from app.features.users.models.profile import Profile
+from app.features.users.models.role import Role
 from app.features.matching.models.preference import UserPreference
-import random
+
+
+def get_or_create_tenant_role(db):
+    role = db.scalar(select(Role).where(Role.name == "tenant"))
+    if role is None:
+        role = Role(name="tenant", description="Nguoi thue tro")
+        db.add(role)
+        db.flush()
+    return role
 
 def seed_roommates():
-    engine = create_engine(settings.database_url)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
     
     try:
+        tenant_role = get_or_create_tenant_role(db)
         # Allow appending new mock users
 
         mock_data = [
@@ -86,27 +93,41 @@ def seed_roommates():
             # Try to fetch existing by email to avoid unique constraint if re-running
             acc = db.query(Account).filter(Account.email == data["email"]).first()
             if not acc:
-                acc = Account(email=data["email"], username=f"mockuser{i}", password_hash="hash", role_id=1, email_verified=True, status="active")
+                acc = Account(
+                    email=data["email"],
+                    username=f"mockuser{i}",
+                    password_hash="hash",
+                    role_id=tenant_role.id,
+                    email_verified=True,
+                    status="active",
+                )
                 db.add(acc)
                 db.flush()
-                
-                prof = Profile(
-                    account_id=acc.id, full_name=data["name"], phone=f"09876543{i:02d}", avatar_url=data["avatar"],
-                    bio=data["intro"], facebook=data["facebook"], instagram=data["instagram"]
-                )
+
+            prof = db.get(Profile, acc.id)
+            if not prof:
+                prof = Profile(account_id=acc.id)
                 db.add(prof)
-            
-            pref = UserPreference(
-                account_id=acc.id,
-                target_city=data["city"],
-                target_district=data["district"],
-                budget_min=data["min"],
-                budget_max=data["max"],
-                habit=data["habits"],
-                introduce=data["intro"],
-                target_gender="any"
-            )
-            db.add(pref)
+
+            prof.full_name = data["name"]
+            prof.phone = f"09876543{i:02d}"
+            prof.avatar_url = data["avatar"]
+            prof.bio = data["intro"]
+            prof.facebook = data["facebook"]
+            prof.instagram = data["instagram"]
+
+            pref = db.get(UserPreference, acc.id)
+            if not pref:
+                pref = UserPreference(account_id=acc.id)
+                db.add(pref)
+
+            pref.target_city = data["city"]
+            pref.target_district = data["district"]
+            pref.budget_min = data["min"]
+            pref.budget_max = data["max"]
+            pref.habit = data["habits"]
+            pref.introduce = data["intro"]
+            pref.target_gender = "any"
             
         db.commit()
         print("Successfully added mock roommates!")
